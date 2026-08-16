@@ -120,10 +120,12 @@
     card.querySelector(".card-proto").textContent = e.proto;
     card.querySelector(".card-highlight").textContent = e.highlight;
     card.querySelector(".card-suffix").textContent = e.suffix;
+    card.querySelector(".card-host").textContent = e.host;
     if (e.access && e.access !== "public") {
       var badge = card.querySelector(".card-badge");
       badge.hidden = false;
-      badge.textContent = e.access === "private" ? "private" : e.access;
+      badge.textContent = e.access === "private" ? "私有" : e.access;
+      badge.dataset.access = e.access;
     }
     return card;
   }
@@ -144,6 +146,14 @@
     var next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem("nav-theme", next); } catch (err) { /* private mode */ }
+  });
+
+  // "/" focuses search (unless already typing in it).
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "/" && document.activeElement !== el.search) {
+      ev.preventDefault();
+      el.search.focus();
+    }
   });
 
   // ------------------------------------------------------------------

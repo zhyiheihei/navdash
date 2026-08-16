@@ -493,6 +493,9 @@ func (a *app) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"authenticated": false})
 }
 
+// handleEntries serves the service card list. Unauthenticated visitors only
+// see the root domain (https://zhyi.xin, the public blog); authenticated
+// sessions get the full list (public + private + localhost services).
 func (a *app) handleEntries(w http.ResponseWriter, r *http.Request) {
 	_, authed := a.currentSession(r)
 	a.entriesMu.RLock()
@@ -500,8 +503,10 @@ func (a *app) handleEntries(w http.ResponseWriter, r *http.Request) {
 	a.entriesMu.RUnlock()
 	out := make([]entry, 0, len(entries))
 	for _, e := range entries {
-		if !authed && e.Access != "public" {
-			continue
+		if !authed {
+			if e.Access != "public" || e.URL != "https://zhyi.xin" {
+				continue
+			}
 		}
 		out = append(out, e)
 	}

@@ -19,30 +19,37 @@
 </script>
 </head>
 <body>
+<div class="cursor-ring" aria-hidden="true"></div>
+
 <header class="nav-header">
   <div class="nav-header-inner">
     <a class="nav-logo" href="/">
-      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+      <svg class="nav-logo-mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
         <defs>
           <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="var(--ds-brand)"/>
-            <stop offset="1" stop-color="var(--ds-brand-deep)"/>
+            <stop offset="0" stop-color="var(--ds-color-brand)"/>
+            <stop offset="1" stop-color="var(--ds-color-brand-deep)"/>
           </linearGradient>
         </defs>
-        <path d="M3 17V3l7 7 7-7v14" fill="none" stroke="url(#lg)" stroke-width="2.6"
+        <path d="M4 18V4l7 7 7-7v14" fill="none" stroke="url(#lg)" stroke-width="2.4"
           stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <span class="nav-logo-text">Nav<em>zhyi</em></span>
+      <span class="nav-logo-text">Nav<span class="nav-logo-sub">zhyi</span></span>
     </a>
-    <div class="nav-search" id="search-wrap">
+
+    <label class="nav-search" id="search-wrap">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
       </svg>
       <input id="search" type="search" placeholder="搜索服务…" autocomplete="off" spellcheck="false">
-    </div>
+      <kbd class="nav-search-kbd" id="search-kbd">/</kbd>
+    </label>
+
     <div class="nav-actions">
       <button class="nav-icon-btn" id="theme-btn" title="切换主题" aria-label="切换主题">
-        <span class="icon-moon">◐</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+        </svg>
       </button>
       <span id="auth-slot" class="nav-auth-slot"></span>
     </div>
@@ -52,12 +59,24 @@
 <main class="nav-main">
   <section class="hero" id="hero" hidden>
     <div class="hero-inner">
-      <h1>你的全部服务，<span class="hero-accent">一处直达</span></h1>
-      <p>登录后展示全部入口（含内网与私有服务）；当前仅显示公开服务。</p>
-      <a class="hero-cta" href="/auth/login">
-        使用 Pocket ID 登录
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
-      </a>
+      <span class="hero-badge">个人服务门户 · OIDC 认证</span>
+      <h1 class="hero-title">
+        你的全部服务，<br>
+        <span class="hero-accent">一处直达</span>
+      </h1>
+      <p class="hero-sub">
+        匿名仅展示公开博客 zhyi.xin；登录后可见全部入口，
+        含内网与私有服务。登录经 login.zhyi.xin（Dex + Pocket ID）。
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/auth/login">
+          使用 Pocket ID 登录
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn-secondary" href="https://zhyi.xin" target="_blank" rel="noopener">
+          访问公开博客 zhyi.xin
+        </a>
+      </div>
     </div>
   </section>
 
@@ -80,11 +99,12 @@
 
 <template id="tpl-card">
   <a class="card" target="_blank" rel="noopener">
-    <div class="card-top">
+    <span class="card-top">
       <span class="card-name"></span>
       <span class="card-badge" hidden></span>
-    </div>
-    <div class="card-url"><span class="card-proto"></span><span class="card-highlight"></span><span class="card-suffix"></span></div>
+    </span>
+    <span class="card-url"><span class="card-proto"></span><span class="card-highlight"></span><span class="card-suffix"></span></span>
+    <span class="card-host"></span>
   </a>
 </template>
 
