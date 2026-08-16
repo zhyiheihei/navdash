@@ -101,13 +101,19 @@ func (p *prober) round(entries []entry) {
 	}
 	sem := make(chan struct{}, 10)
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var downList []string
 	for _, e := range jobs {
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(e entry) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			p.probeOne(e.URL, now)
+			if err := p.probeOne(e.URL, now); err != nil {
+				mu.Lock()
+				downList = append(downList, e.URL+": "+err.Error())
+				mu.Unlock()
+			}
 		}(e)
 	}
 	wg.Wait()
@@ -122,6 +128,9 @@ func (p *prober) round(entries []entry) {
 	}
 	log.Printf("probe: round done (%d probed, %d up, %d down, %d unknown)",
 		len(jobs), up, down, len(p.snapshot())-up-down)
+	for _, d := range downList {
+		log.Printf("probe: down - %s", d)
+	}
 }
 
 // classify decides probing eligibility for one entry.
@@ -162,12 +171,8 @@ func isPrivateIP(ip net.IP) bool {
 		return true
 	}
 	if v4 := ip.To4(); v4 != nil {
-		// CGNAT 100.64.0.0/10, benchmark 198.18.0.0/15 — also non-routable
-		// from the public internet.
+		// CGNAT 100.64.0.0/10 — non-routable from the public internet.
 		if v4[0] == 100 && v4[1] >= 64 && v4[1] < 128 {
-			return true
-		}
-		if v4[0] == 198 && v4[1] >= 18 && v4[1] < 20 {
 			return true
 		}
 		return false
@@ -187,7 +192,7 @@ func isPrivateIP(ip net.IP) bool {
 // probeOne measures latency via HEAD, falling back to a ranged GET when the
 // server rejects HEAD (405/501). Any HTTP response counts as reachable
 // (status code is surfaced for the user); only transport errors are "down".
-func (p *prober) probeOne(rawURL string, now int64) {
+func (p *prober) probeOne(rawURL string, now int64) error {
 	start := time.Now()
 	code, err := p.head(rawURL)
 	if err != nil {
@@ -202,6 +207,7 @@ func (p *prober) probeOne(rawURL string, now int64) {
 		st.LatencyMS = int(time.Since(start).Milliseconds())
 	}
 	p.set(st)
+	return err
 }
 
 func (p *prober) head(rawURL string) (int, error) {
