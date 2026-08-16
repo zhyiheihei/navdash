@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -49,15 +50,21 @@ func probeInterval() time.Duration {
 }
 
 func newProber(interval time.Duration) *prober {
+	// Reachability probe, not a TLS audit: certificates are not validated
+	// (LAN services use short-lived/self-signed names like zhyi.dn42) and
+	// redirects are NOT followed — a 3xx response already proves the
+	// service is answering (OAuth apps redirect to their login page by
+	// design and would otherwise report "too many redirects").
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 	return &prober{
 		interval: interval,
 		client: &http.Client{
-			Timeout: 4 * time.Second,
-			CheckRedirect: func(_ *http.Request, via []*http.Request) error {
-				if len(via) >= 3 {
-					return fmt.Errorf("too many redirects")
-				}
-				return nil
+			Transport: tr,
+			Timeout:   6 * time.Second,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
 			},
 		},
 		m: map[string]*probeStatus{},
