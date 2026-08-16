@@ -28,7 +28,7 @@ Host Grotesk + DM Sans），无构建步骤；后端为纯 Go 标准库单二进
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `NAVDASH_LISTEN` | 否 | 监听地址，默认 `127.0.0.1:13828` |
+| `NAVDASH_LISTEN` | 否 | 监听地址，默认 `127.0.0.1:13828`（NixOS 集成固定为 `127.0.0.1:13833`，见 nixos-config `helpers/constants/ports.nix`） |
 | `NAVDASH_BASE_URL` | 否 | 公开 origin（构造 redirect_uri），默认 `http://<listen>` |
 | `NAVDASH_OIDC_ISSUER` | 是 | OIDC issuer，如 `https://login.example.com` |
 | `NAVDASH_OIDC_CLIENT_ID` | 是 | client id |
