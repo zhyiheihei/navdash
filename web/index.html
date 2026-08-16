@@ -47,6 +47,11 @@
     </label>
 
     <div class="nav-actions">
+      <button class="nav-icon-btn" id="home-btn" title="设为浏览器主页" aria-label="设为浏览器主页">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="m3 10 9 7 9-7"/><path d="M9 22V12h6v10"/>
+        </svg>
+      </button>
       <button class="nav-icon-btn" id="theme-btn" title="切换主题" aria-label="切换主题">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
@@ -108,12 +113,57 @@
   <a class="card" target="_blank" rel="noopener">
     <span class="card-top">
       <span class="card-name"></span>
-      <span class="card-badge" hidden></span>
+      <span class="card-actions">
+        <span class="card-badge" hidden></span>
+        <button class="card-btn card-pin" title="置顶/取消置顶" aria-label="置顶">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </button>
+        <button class="card-btn card-menu" title="移入分组" aria-label="移入分组">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>
+          </svg>
+        </button>
+      </span>
     </span>
     <span class="card-url"><span class="card-proto"></span><span class="card-highlight"></span><span class="card-suffix"></span></span>
-    <span class="card-host"></span>
+    <span class="card-meta">
+      <span class="card-status">
+        <span class="card-dot" data-level="idle"></span>
+        <span class="card-latency"></span>
+      </span>
+      <span class="card-host"></span>
+    </span>
   </a>
 </template>
+
+<!-- Group-move picker: a tiny anchored popover fed by JS. -->
+<div class="move-menu" id="move-menu" hidden>
+  <div class="move-menu-head">移入分组</div>
+  <input class="move-menu-input" id="move-menu-input" placeholder="输入新组名，回车确认" autocomplete="off" spellcheck="false">
+  <div class="move-menu-hint">留空并回车 = 恢复按主机分组</div>
+</div>
+
+<!-- Browser-home guidance (browsers block sites from changing it silently). -->
+<dialog class="home-dialog" id="home-dialog">
+  <div class="home-dialog-head">
+    <h2>设为浏览器主页</h2>
+    <button class="home-dialog-close" id="home-dialog-close" aria-label="关闭">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <p class="home-dialog-note">出于安全，浏览器不允许网页直接修改主页，请按下方引导手动设置：</p>
+  <ol class="home-dialog-steps">
+    <li><b>Chrome / Edge</b>：设置 → 外观 → 「显示主页按钮」→ 填入下方地址；「启动时」→ 打开特定网页。</li>
+    <li><b>Firefox</b>：设置 → 主页 → 自定义网址 → 填入下方地址。</li>
+    <li><b>Safari</b>：设置 → 通用 → 主页 → 填入下方地址。新标签页也可指向「个人收藏」。</li>
+  </ol>
+  <div class="home-dialog-copy">
+    <code id="home-dialog-url">https://nav.zhyi.xin</code>
+    <button class="btn btn-primary" id="home-dialog-copy">复制地址</button>
+  </div>
+</dialog>
 
 <script src="/assets/js/bg.js" defer></script>
 <script src="/assets/js/app.js" defer></script>

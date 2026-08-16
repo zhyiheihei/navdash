@@ -1,14 +1,22 @@
-// navdash frontend: fetch /api/me + /api/entries, render grouped cards,
-// live search, theme toggle. No build step, no dependencies.
+// navdash frontend: fetch /api/me + /api/entries + /api/status, render
+// grouped cards with live health dots, search, pinning and custom grouping.
+// No build step, no dependencies; localStorage holds the user's layout.
 
 (function () {
   "use strict";
+
+  // Health latency thresholds (ms), matching gethomepage's indicator.
+  var OK = 250;
+  var WARN = 1000;
 
   var state = {
     authenticated: false,
     username: "",
     entries: [],
+    status: {},          // url -> {status, latency_ms, code}
     query: "",
+    pins: {},            // url -> true (persisted)
+    groups: {},          // url -> custom group name (persisted)
   };
 
   var el = {
@@ -17,21 +25,54 @@
     hero: document.getElementById("hero"),
     authSlot: document.getElementById("auth-slot"),
     themeBtn: document.getElementById("theme-btn"),
+    homeBtn: document.getElementById("home-btn"),
+    homeDialog: document.getElementById("home-dialog"),
+    homeClose: document.getElementById("home-dialog-close"),
+    homeCopy: document.getElementById("home-dialog-copy"),
+    homeUrl: document.getElementById("home-dialog-url"),
     tplGroup: document.getElementById("tpl-group"),
     tplCard: document.getElementById("tpl-card"),
+    moveMenu: document.getElementById("move-menu"),
+    moveInput: document.getElementById("move-menu-input"),
   };
+
+  function loadLocal() {
+    try {
+      var p = JSON.parse(localStorage.getItem("nav-pins") || "[]");
+      state.pins = {};
+      (Array.isArray(p) ? p : []).forEach(function (u) { state.pins[u] = true; });
+      var g = JSON.parse(localStorage.getItem("nav-groups") || "{}");
+      state.groups = (g && typeof g === "object") ? g : {};
+    } catch (err) { /* private mode: default layout */ }
+  }
+  function savePins() {
+    var list = Object.keys(state.pins).filter(function (u) { return state.pins[u]; });
+    try { localStorage.setItem("nav-pins", JSON.stringify(list)); } catch (err) { /* ignore */ }
+  }
+  function saveGroups() {
+    try { localStorage.setItem("nav-groups", JSON.stringify(state.groups)); } catch (err) { /* ignore */ }
+  }
 
   // ------------------------------------------------------------------
   // Rendering
 
-  function groupKey(e) {
-    // Group by origin host; private per-host subdomains stay with their host.
-    return e.host || "other";
+  function healthLevel(url) {
+    var st = state.status[url];
+    if (!st || st.status === "unknown") return "idle";
+    if (st.status === "down") return "down";
+    if (st.latency_ms <= OK) return "ok";
+    if (st.latency_ms <= WARN) return "warn";
+    return "bad";
   }
 
-  function groupOrder(g) {
-    // Own public domain first, then everything else alphabetically.
-    return g;
+  function latencyText(url) {
+    var st = state.status[url];
+    if (!st) return "检测中…";
+    switch (st.status) {
+      case "up": return st.latency_ms + "ms";
+      case "down": return "不可达";
+      default: return "内网";
+    }
   }
 
   function render() {
@@ -70,18 +111,18 @@
     el.hero.hidden = state.authenticated;
   }
 
+  function matches(e, q) {
+    return (
+      (e.name || "").toLowerCase().indexOf(q) !== -1 ||
+      (e.host || "").toLowerCase().indexOf(q) !== -1 ||
+      (e.url || "").toLowerCase().indexOf(q) !== -1
+    );
+  }
+
   function renderCards() {
     el.groups.textContent = "";
     var q = state.query.trim().toLowerCase();
-
-    var kept = state.entries.filter(function (e) {
-      if (!q) return true;
-      return (
-        (e.name || "").toLowerCase().indexOf(q) !== -1 ||
-        (e.host || "").toLowerCase().indexOf(q) !== -1 ||
-        (e.url || "").toLowerCase().indexOf(q) !== -1
-      );
-    });
+    var kept = state.entries.filter(function (e) { return !q || matches(e, q); });
 
     if (kept.length === 0) {
       var empty = document.createElement("div");
@@ -91,47 +132,159 @@
       return;
     }
 
+    // Pinned entries always lead, as their own group.
+    var list = [];
+    var pinned = kept.filter(function (e) { return state.pins[e.url]; });
+    if (pinned.length) {
+      list.push({ key: "置顶", entries: pinned });
+    }
+    kept = kept.filter(function (e) { return !state.pins[e.url]; });
+
     var groups = {};
     var order = [];
     kept.forEach(function (e) {
-      var k = groupKey(e);
-      if (!groups[k]) {
-        groups[k] = [];
-        order.push(k);
-      }
+      var k = state.groups[e.url] || e.host || "other";
+      if (!groups[k]) { groups[k] = []; order.push(k); }
       groups[k].push(e);
     });
-    order.sort(function (a, b) { return groupOrder(a) < groupOrder(b) ? -1 : 1; });
+    order.sort();
+    order.forEach(function (k) { list.push({ key: k, entries: groups[k] }); });
 
-    order.forEach(function (k) {
+    list.forEach(function (g) {
       var section = el.tplGroup.content.firstElementChild.cloneNode(true);
-      section.querySelector(".group-title").textContent = k;
-      section.querySelector(".group-count").textContent = groups[k].length + " 项";
+      section.querySelector(".group-title").textContent = g.key;
+      section.querySelector(".group-count").textContent = g.entries.length + " 项";
       var grid = section.querySelector(".group-grid");
-      groups[k].forEach(function (e) { grid.appendChild(renderCard(e)); });
+      g.entries.forEach(function (e) { grid.appendChild(renderCard(e)); });
       el.groups.appendChild(section);
     });
+
+    el.groups.querySelectorAll(".card").forEach(wireCard);
   }
 
   function renderCard(e) {
     var card = el.tplCard.content.firstElementChild.cloneNode(true);
     card.href = e.url;
+    card.title = e.url;
     card.querySelector(".card-name").textContent = e.name;
     card.querySelector(".card-proto").textContent = e.proto;
     card.querySelector(".card-highlight").textContent = e.highlight;
     card.querySelector(".card-suffix").textContent = e.suffix;
     card.querySelector(".card-host").textContent = e.host;
+
+    var badge = card.querySelector(".card-badge");
     if (e.access && e.access !== "public") {
-      var badge = card.querySelector(".card-badge");
       badge.hidden = false;
       badge.textContent = e.access === "private" ? "私有" : e.access;
       badge.dataset.access = e.access;
     }
+
+    var st = state.status[e.url];
+    if (st) card.title += " · " +
+      ({ up: "可达", down: "不可达", unknown: "内网/不可探测" }[st.status] || st.status) +
+      (st.latency_ms ? " · " + st.latency_ms + "ms" : "") +
+      (st.code ? " · HTTP " + st.code : "");
+
+    var dot = card.querySelector(".card-dot");
+    dot.dataset.level = healthLevel(e.url);
+
+    var lat = card.querySelector(".card-latency");
+    lat.textContent = latencyText(e.url);
+    if (e.access && e.access !== "public") lat.classList.add("is-unknown");
+
+    var pinBtn = card.querySelector(".card-pin");
+    pinBtn.classList.toggle("is-pinned", !!state.pins[e.url]);
     return card;
   }
 
+  function wireCard(card) {
+    card.querySelector(".card-pin").addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      var url = card.href;
+      if (state.pins[url]) { delete state.pins[url]; }
+      else { state.pins[url] = true; }
+      savePins();
+      renderCards();
+    });
+    card.querySelector(".card-menu").addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openMoveMenu(card);
+    });
+  }
+
   // ------------------------------------------------------------------
-  // Events
+  // Group-move popover
+
+  function openMoveMenu(card) {
+    var url = card.href;
+    el.moveInput.value = state.groups[url] || "";
+    el.moveMenu.hidden = false;
+    var r = card.getBoundingClientRect();
+    el.moveMenu.style.left = Math.min(r.left, window.innerWidth - 220) + "px";
+    el.moveMenu.style.top = (r.bottom + 6) + "px";
+    el.moveMenu.dataset.url = url;
+    el.moveInput.focus();
+    el.moveInput.select();
+  }
+
+  function closeMoveMenu() {
+    el.moveMenu.hidden = true;
+    el.moveMenu.dataset.url = "";
+  }
+
+  document.addEventListener("click", function (ev) {
+    if (!el.moveMenu.hidden && !el.moveMenu.contains(ev.target)) closeMoveMenu();
+  });
+
+  el.moveMenu.addEventListener("submit", function (ev) { ev.preventDefault(); });
+  el.moveInput.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Enter") return;
+    var url = el.moveMenu.dataset.url;
+    if (!url) return;
+    var name = el.moveInput.value.trim();
+    if (name) { state.groups[url] = name; }
+    else { delete state.groups[url]; }
+    saveGroups();
+    closeMoveMenu();
+    renderCards();
+  });
+
+  // ------------------------------------------------------------------
+  // Browser-home guidance dialog
+
+  el.homeBtn.addEventListener("click", function () {
+    if (typeof el.homeDialog.showModal === "function") {
+      el.homeDialog.showModal();
+    } else {
+      el.homeDialog.setAttribute("open", "");
+    }
+  });
+  el.homeClose.addEventListener("click", function () { el.homeDialog.close(); });
+  el.homeDialog.addEventListener("click", function (ev) {
+    if (ev.target === el.homeDialog) el.homeDialog.close();
+  });
+  el.homeCopy.addEventListener("click", function () {
+    var url = el.homeUrl.textContent;
+    function done() {
+      el.homeCopy.textContent = "已复制";
+      setTimeout(function () { el.homeCopy.textContent = "复制地址"; }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, done);
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); done(); } catch (err) { /* ignore */ }
+      ta.remove();
+    }
+  });
+
+  // ------------------------------------------------------------------
+  // Search / theme / keyboard
 
   var debounceTimer = null;
   el.search.addEventListener("input", function () {
@@ -156,6 +309,18 @@
     }
   });
 
+  // Status comes from the server and may update while the page is open;
+  // refresh the dots from time to time without a full reload.
+  setInterval(function () {
+    fetch("/api/status", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        state.status = d.status || {};
+        if (el.groups.childElementCount) renderCards();
+      })
+      .catch(function () { /* keep last known */ });
+  }, 30000);
+
   // ------------------------------------------------------------------
   // Boot
 
@@ -166,12 +331,14 @@
     });
   }
 
-  Promise.all([getJSON("/api/me"), getJSON("/api/entries")])
+  loadLocal();
+  Promise.all([getJSON("/api/me"), getJSON("/api/entries"), getJSON("/api/status")])
     .then(function (results) {
       var me = results[0];
       state.authenticated = !!me.authenticated;
       state.username = me.username || "";
       state.entries = results[1].entries || [];
+      state.status = results[2].status || {};
       render();
     })
     .catch(function (err) {

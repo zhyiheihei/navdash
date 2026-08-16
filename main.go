@@ -263,6 +263,8 @@ type app struct {
 	entriesMu sync.RWMutex
 	entries   entryFile
 
+	probe *prober
+
 	staticFS  fs.FS
 	etags     map[string]string
 }
@@ -280,10 +282,12 @@ func newApp(cfg *config) (*app, error) {
 		cfg:      cfg,
 		client:   &http.Client{Timeout: 15 * time.Second},
 		entries:  ef,
+		probe:    newProber(probeInterval()),
 		staticFS: sub,
 		etags:    map[string]string{},
 	}
 	a.buildEtags()
+	go a.probe.loop(ef.Entries)
 	return a, nil
 }
 
@@ -513,6 +517,23 @@ func (a *app) handleEntries(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"entries": out})
 }
 
+// handleStatus serves the cached health probe results, filtered to exactly
+// the entries the requester can see (anonymous visitors get the root blog
+// only, same as /api/entries).
+func (a *app) handleStatus(w http.ResponseWriter, r *http.Request) {
+	_, authed := a.currentSession(r)
+	all := a.probe.snapshot()
+	if authed {
+		writeJSON(w, http.StatusOK, map[string]any{"status": all})
+		return
+	}
+	out := map[string]*probeStatus{}
+	if st, ok := all["https://zhyi.xin"]; ok {
+		out["https://zhyi.xin"] = st
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": out})
+}
+
 // ---------------------------------------------------------------------------
 // Static assets
 
@@ -574,6 +595,7 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("/auth/logout", a.handleLogout)
 	mux.HandleFunc("/api/me", a.handleMe)
 	mux.HandleFunc("/api/entries", a.handleEntries)
+	mux.HandleFunc("/api/status", a.handleStatus)
 	mux.HandleFunc("/", a.handleStatic)
 	return logRequests(mux)
 }
