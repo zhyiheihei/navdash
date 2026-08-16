@@ -58,6 +58,12 @@
 
 <main class="nav-main">
   <section class="hero" id="hero" hidden>
+    <div class="hero-bg" aria-hidden="true">
+      <div class="hero-bg-grid"></div>
+      <div class="hero-bg-glow"></div>
+      <canvas id="bg-network-glow" class="hero-bg-canvas hero-bg-canvas-glow"></canvas>
+      <canvas id="bg-network" class="hero-bg-canvas"></canvas>
+    </div>
     <div class="hero-inner">
       <span class="hero-badge">个人服务门户 · OIDC 认证</span>
       <h1 class="hero-title">
@@ -108,6 +114,7 @@
   </a>
 </template>
 
+<script src="/assets/js/bg.js" defer></script>
 <script src="/assets/js/app.js" defer></script>
 </body>
 </html>
