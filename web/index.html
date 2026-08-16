@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nav · Zhyi</title>
+<meta name="description" content="Zhyi 的个人服务门户">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/host-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/dm-sans-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/main.css">
+<script>
+// Apply the remembered theme before first paint to avoid a flash.
+(function () {
+  var t = localStorage.getItem("nav-theme");
+  if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  document.documentElement.dataset.theme = t;
+})();
+</script>
+</head>
+<body>
+<header class="nav-header">
+  <div class="nav-header-inner">
+    <a class="nav-logo" href="/">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <defs>
+          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--ds-brand)"/>
+            <stop offset="1" stop-color="var(--ds-brand-deep)"/>
+          </linearGradient>
+        </defs>
+        <path d="M3 17V3l7 7 7-7v14" fill="none" stroke="url(#lg)" stroke-width="2.6"
+          stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="nav-logo-text">Nav<em>zhyi</em></span>
+    </a>
+    <div class="nav-search" id="search-wrap">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+      </svg>
+      <input id="search" type="search" placeholder="搜索服务…" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="nav-actions">
+      <button class="nav-icon-btn" id="theme-btn" title="切换主题" aria-label="切换主题">
+        <span class="icon-moon">◐</span>
+      </button>
+      <span id="auth-slot" class="nav-auth-slot"></span>
+    </div>
+  </div>
+</header>
+
+<main class="nav-main">
+  <section class="hero" id="hero" hidden>
+    <div class="hero-inner">
+      <h1>你的全部服务，<span class="hero-accent">一处直达</span></h1>
+      <p>登录后展示全部入口（含内网与私有服务）；当前仅显示公开服务。</p>
+      <a class="hero-cta" href="/auth/login">
+        使用 Pocket ID 登录
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+      </a>
+    </div>
+  </section>
+
+  <div class="groups" id="groups" aria-live="polite"></div>
+
+  <footer class="nav-footer">
+    <span>由 Nix 求值期自动生成 · 登录经 login.zhyi.xin (OIDC)</span>
+  </footer>
+</main>
+
+<template id="tpl-group">
+  <section class="group">
+    <div class="group-head">
+      <h2 class="group-title"></h2>
+      <span class="group-count"></span>
+    </div>
+    <div class="group-grid"></div>
+  </section>
+</template>
+
+<template id="tpl-card">
+  <a class="card" target="_blank" rel="noopener">
+    <div class="card-top">
+      <span class="card-name"></span>
+      <span class="card-badge" hidden></span>
+    </div>
+    <div class="card-url"><span class="card-proto"></span><span class="card-highlight"></span><span class="card-suffix"></span></div>
+  </a>
+</template>
+
+<script src="/assets/js/app.js" defer></script>
+</body>
+</html>
