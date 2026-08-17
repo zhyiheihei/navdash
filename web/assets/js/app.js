@@ -172,6 +172,23 @@
     card.querySelector(".card-suffix").textContent = e.suffix;
     card.querySelector(".card-host").textContent = e.host;
 
+    // Card icon: server-side favicon when available, deterministic letter
+    // glyph otherwise (see /api/icon). The ?v= cache-buster lets the later
+    // refresh pick up a favicon that was fetched after first paint.
+    var icon = card.querySelector(".card-icon");
+    var host = "";
+    try { host = new URL(e.url).hostname; } catch (err) { /* keep empty */ }
+    if (host) {
+      icon.decoding = "async";
+      icon.alt = e.highlight || e.name || "icon";
+      icon.src = "/api/icon?host=" + encodeURIComponent(host) + "&v=2";
+      // Server always answers (real favicon or letter glyph); if the image
+      // itself fails to load, drop it rather than show a broken frame.
+      icon.addEventListener("error", function () { icon.hidden = true; });
+    } else {
+      icon.hidden = true;
+    }
+
     var badge = card.querySelector(".card-badge");
     if (e.access && e.access !== "public") {
       badge.hidden = false;
@@ -340,6 +357,17 @@
       state.entries = results[1].entries || [];
       state.status = results[2].status || {};
       render();
+      // The server prefetches favicons in the background after boot; letter
+      // glyphs render instantly, then this pass swaps in real favicons once
+      // the prefetch has usually settled.
+      setTimeout(function () {
+        document.querySelectorAll(".card-icon").forEach(function (img) {
+          if (!img.src) return;
+          var u = new URL(img.src);
+          u.searchParams.set("v", "3");
+          img.src = u.toString();
+        });
+      }, 6000);
     })
     .catch(function (err) {
       console.error(err);

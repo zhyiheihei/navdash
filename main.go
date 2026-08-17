@@ -265,8 +265,10 @@ type app struct {
 
 	probe *prober
 
-	staticFS  fs.FS
-	etags     map[string]string
+	icons *iconStore
+
+	staticFS fs.FS
+	etags    map[string]string
 }
 
 func newApp(cfg *config) (*app, error) {
@@ -283,11 +285,13 @@ func newApp(cfg *config) (*app, error) {
 		client:   &http.Client{Timeout: 15 * time.Second},
 		entries:  ef,
 		probe:    newProber(probeInterval()),
+		icons:    newIconStore(),
 		staticFS: sub,
 		etags:    map[string]string{},
 	}
 	a.buildEtags()
 	go a.probe.loop(ef.Entries)
+	go a.icons.prefetch(entryHosts(ef.Entries))
 	return a, nil
 }
 
@@ -365,9 +369,9 @@ type tokenResponse struct {
 }
 
 type userInfoResponse struct {
-	Subject          string `json:"sub"`
-	PreferredUser    string `json:"preferred_username"`
-	Email            string `json:"email"`
+	Subject       string `json:"sub"`
+	PreferredUser string `json:"preferred_username"`
+	Email         string `json:"email"`
 }
 
 func (a *app) handleCallback(w http.ResponseWriter, r *http.Request) {
@@ -538,13 +542,13 @@ func (a *app) handleStatus(w http.ResponseWriter, r *http.Request) {
 // Static assets
 
 var contentTypes = map[string]string{
-	".html": "text/html; charset=utf-8",
-	".css":  "text/css; charset=utf-8",
-	".js":   "text/javascript; charset=utf-8",
-	".svg":  "image/svg+xml",
-	".png":  "image/png",
+	".html":  "text/html; charset=utf-8",
+	".css":   "text/css; charset=utf-8",
+	".js":    "text/javascript; charset=utf-8",
+	".svg":   "image/svg+xml",
+	".png":   "image/png",
 	".woff2": "font/woff2",
-	".txt":  "text/plain; charset=utf-8",
+	".txt":   "text/plain; charset=utf-8",
 }
 
 func (a *app) handleStatic(w http.ResponseWriter, r *http.Request) {
@@ -596,6 +600,7 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("/api/me", a.handleMe)
 	mux.HandleFunc("/api/entries", a.handleEntries)
 	mux.HandleFunc("/api/status", a.handleStatus)
+	mux.HandleFunc("/api/icon", a.handleIcon)
 	mux.HandleFunc("/", a.handleStatic)
 	return logRequests(mux)
 }

@@ -663,6 +663,21 @@ body::before {
   justify-content: space-between;
   gap: 8px;
 }
+.card-title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.card-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: var(--ds-color-bg-surface-2);
+  box-shadow: inset 0 0 0 1px var(--ds-color-border-default);
+}
 .card-name {
   font-weight: 600;
   font-size: 15px;
