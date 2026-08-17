@@ -199,11 +199,16 @@ func isPrivateIP(ip net.IP) bool {
 // probeOne measures latency via HEAD, falling back to a ranged GET when the
 // server rejects HEAD (405/501). Any HTTP response counts as reachable
 // (status code is surfaced for the user); only transport errors are "down".
+// When a zhyi domain fails on its default port 443, it is retried on 8443:
+// the home WAN port 443 is blocked by the ISP, so the public entry for
+// on-premise services is :8443 (router DNATs 8443 -> opi5p:443). Cloud-hosted
+// services answer on 443 and never trigger the retry.
 func (p *prober) probeOne(rawURL string, now int64) error {
-	start := time.Now()
-	code, err := p.head(rawURL)
+	code, ms, err := p.measure(rawURL)
 	if err != nil {
-		code, err = p.get(rawURL)
+		if alt := alt8443URL(rawURL); alt != "" {
+			code, ms, err = p.measure(alt)
+		}
 	}
 	st := &probeStatus{URL: rawURL, UpdatedAt: now}
 	if err != nil {
@@ -211,10 +216,40 @@ func (p *prober) probeOne(rawURL string, now int64) error {
 	} else {
 		st.Status = "up"
 		st.Code = code
-		st.LatencyMS = int(time.Since(start).Milliseconds())
+		st.LatencyMS = ms
 	}
 	p.set(st)
 	return err
+}
+
+// measure does HEAD with a ranged-GET fallback and returns the status code,
+// latency in milliseconds, and transport error (nil when any HTTP response
+// was received).
+func (p *prober) measure(rawURL string) (code int, ms int, err error) {
+	start := time.Now()
+	code, err = p.head(rawURL)
+	if err != nil {
+		code, err = p.get(rawURL)
+	}
+	return code, int(time.Since(start).Milliseconds()), err
+}
+
+// alt8443URL returns the :8443 variant for a zhyi-domain HTTPS URL that has
+// no explicit port, or "" when the retry does not apply.
+func alt8443URL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme != "https" || u.Port() != "" {
+		return ""
+	}
+	host := u.Hostname()
+	if !strings.HasSuffix(host, ".zhyi.xin") &&
+		!strings.HasSuffix(host, ".zhyi.cc") &&
+		!strings.HasSuffix(host, ".moliy.site") {
+		return ""
+	}
+	c := *u
+	c.Host = host + ":8443"
+	return c.String()
 }
 
 func (p *prober) head(rawURL string) (int, error) {
