@@ -393,6 +393,24 @@ body::before {
   -webkit-mask-image: linear-gradient(#000000fc 0%, #000000e8 8.98%, transparent 100%);
 }
 
+/* Random picture behind the grid/particles: faded well down so hero text
+   stays readable in both themes. The .hero-bg mask already fades the whole
+   layer out toward the bottom. */
+.hero-bg-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0.3;
+  filter: saturate(0.85);
+  background: var(--ds-color-bg-surface-1);
+}
+[data-theme="dark"] .hero-bg-img {
+  opacity: 0.25;
+}
+
 .hero-bg-grid {
   position: absolute;
   inset: 0;

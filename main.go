@@ -266,6 +266,7 @@ type app struct {
 	probe *prober
 
 	icons *iconStore
+	bg    *bgStore
 
 	staticFS fs.FS
 	etags    map[string]string
@@ -286,12 +287,15 @@ func newApp(cfg *config) (*app, error) {
 		entries:  ef,
 		probe:    newProber(probeInterval()),
 		icons:    newIconStore(),
+		bg:       newBGStore(),
 		staticFS: sub,
 		etags:    map[string]string{},
 	}
 	a.buildEtags()
 	go a.probe.loop(ef.Entries)
 	go a.icons.prefetch(entryHosts(ef.Entries))
+	// Warm the hero background so the first visitor doesn't pay the fetch.
+	go func() { a.bg.get() }()
 	return a, nil
 }
 
@@ -601,6 +605,7 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("/api/entries", a.handleEntries)
 	mux.HandleFunc("/api/status", a.handleStatus)
 	mux.HandleFunc("/api/icon", a.handleIcon)
+	mux.HandleFunc("/api/bg", a.handleBG)
 	mux.HandleFunc("/", a.handleStatic)
 	return logRequests(mux)
 }
