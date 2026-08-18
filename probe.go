@@ -25,11 +25,14 @@ import (
 // Latency colouring (green/amber/red thresholds) is done on the frontend.
 
 type probeStatus struct {
-	URL       string `json:"url"`
-	Status    string `json:"status"` // up | down | unknown
-	LatencyMS int    `json:"latency_ms,omitempty"`
-	Code      int    `json:"code,omitempty"`
-	UpdatedAt int64  `json:"updated_at"`
+	URL    string `json:"url"`
+	Status string `json:"status"` // up | down | unknown
+	// LatencyMS keeps its zero value in JSON on purpose: a sub-millisecond
+	// probe truncates to 0, and omitempty used to drop the field entirely,
+	// which the frontend then rendered as "undefinedms".
+	LatencyMS int   `json:"latency_ms"`
+	Code      int   `json:"code,omitempty"`
+	UpdatedAt int64 `json:"updated_at"`
 }
 
 type prober struct {

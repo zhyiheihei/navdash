@@ -247,13 +247,21 @@ func (s *iconStore) prefetch(hosts []string) {
 // handleIcon serves a card icon by host. The response is cached client-side
 // for an hour; the letter glyphs are deterministic, real favicons change
 // rarely, so one hour is a good refresh balance.
+//
+// Network fetches are restricted to hosts that actually appear in the Nix
+// generated entries; anything else gets the offline letter glyph. Without
+// this, anyone on the internet could make this server probe arbitrary
+// hosts' /favicon.ico.
 func (a *app) handleIcon(w http.ResponseWriter, r *http.Request) {
 	host, ok := normalizeHost(r.URL.Query().Get("host"))
 	if !ok {
 		http.Error(w, "bad host", http.StatusBadRequest)
 		return
 	}
-	ic := a.icons.get(host)
+	ic := letterIcon(host)
+	if a.iconHosts[host] {
+		ic = a.icons.get(host)
+	}
 	w.Header().Set("Content-Type", ic.ct)
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Header().Set("X-Content-Type-Options", "nosniff")

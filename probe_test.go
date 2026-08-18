@@ -1,11 +1,26 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
+
+// TestProbeStatusJSONKeepsZeroLatency: a sub-millisecond probe truncates to
+// LatencyMS 0; the field must survive serialization, otherwise the frontend
+// renders "undefinedms" and miscolours the health dot.
+func TestProbeStatusJSONKeepsZeroLatency(t *testing.T) {
+	raw, err := json.Marshal(probeStatus{URL: "https://zhyi.xin", Status: "up"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"latency_ms":0`) {
+		t.Fatalf("latency_ms missing from %s", raw)
+	}
+}
 
 func TestClassify(t *testing.T) {
 	cases := []struct {

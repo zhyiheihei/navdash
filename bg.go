@@ -14,6 +14,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -82,9 +83,19 @@ func (s *bgStore) fetch() ([]byte, string, error) {
 	if len(data) > bgMaxSize {
 		return nil, "", fmt.Errorf("oversized (%d bytes)", len(data))
 	}
-	ct := resp.Header.Get("Content-Type")
-	if ct == "" {
-		ct = "image/*"
+	// Trust the bytes, not the header: a missing Content-Type used to become
+	// a literal "image/*" which X-Content-Type-Options: nosniff rejects.
+	// Sniff the magic bytes; the upstream header is only believed for SVG,
+	// which has no magic bytes and sniffs as text/xml.
+	ct := http.DetectContentType(data)
+	if !strings.HasPrefix(ct, "image/") {
+		up := resp.Header.Get("Content-Type")
+		textish := strings.HasPrefix(ct, "text/xml") || strings.HasPrefix(ct, "text/plain")
+		if strings.HasPrefix(up, "image/svg+xml") && textish {
+			ct = up
+		} else {
+			return nil, "", fmt.Errorf("not a recognized image (detected %q)", ct)
+		}
 	}
 	return data, ct, nil
 }

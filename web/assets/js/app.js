@@ -60,16 +60,23 @@
     var st = state.status[url];
     if (!st || st.status === "unknown") return "idle";
     if (st.status === "down") return "down";
-    if (st.latency_ms <= OK) return "ok";
-    if (st.latency_ms <= WARN) return "warn";
+    var ms = latencyOf(st);
+    if (ms <= OK) return "ok";
+    if (ms <= WARN) return "warn";
     return "bad";
+  }
+
+  // Sub-millisecond probes serialize latency_ms as 0; guard against the
+  // field being absent anyway so we never compute on undefined.
+  function latencyOf(st) {
+    return typeof st.latency_ms === "number" ? st.latency_ms : 0;
   }
 
   function latencyText(url) {
     var st = state.status[url];
     if (!st) return "检测中…";
     switch (st.status) {
-      case "up": return st.latency_ms + "ms";
+      case "up": return latencyOf(st) + "ms";
       case "down": return "不可达";
       default: return "内网";
     }
@@ -166,21 +173,33 @@
     var card = el.tplCard.content.firstElementChild.cloneNode(true);
     card.href = e.url;
     card.title = e.url;
+    // entry 的原始 url 作为交互状态键：DOM 的 href 属性会规范化成带尾斜杠的绝对 URL，
+    // 与 e.url 字符串不一致会导致置顶/分组查找永远落空。
+    card.dataset.url = e.url;
+
+    var host = "";
+    try { host = new URL(e.url).hostname; } catch (err) { /* keep empty */ }
+
+    // Root-domain entries (e.g. https://zhyi.xin) come from Nix with an
+    // empty highlight — the regex splits the whole name into the suffix.
+    // Fall back to the hostname so the URL line keeps a bold title instead
+    // of an all-dim one.
+    var highlight = e.highlight || host || e.url;
+    var suffix = e.highlight ? e.suffix : "";
+
     card.querySelector(".card-name").textContent = e.name;
     card.querySelector(".card-proto").textContent = e.proto;
-    card.querySelector(".card-highlight").textContent = e.highlight;
-    card.querySelector(".card-suffix").textContent = e.suffix;
+    card.querySelector(".card-highlight").textContent = highlight;
+    card.querySelector(".card-suffix").textContent = suffix;
     card.querySelector(".card-host").textContent = e.host;
 
     // Card icon: server-side favicon when available, deterministic letter
     // glyph otherwise (see /api/icon). The ?v= cache-buster lets the later
     // refresh pick up a favicon that was fetched after first paint.
     var icon = card.querySelector(".card-icon");
-    var host = "";
-    try { host = new URL(e.url).hostname; } catch (err) { /* keep empty */ }
     if (host) {
       icon.decoding = "async";
-      icon.alt = e.highlight || e.name || "icon";
+      icon.alt = highlight;
       icon.src = "/api/icon?host=" + encodeURIComponent(host) + "&v=2";
       // Server always answers (real favicon or letter glyph); if the image
       // itself fails to load, drop it rather than show a broken frame.
@@ -218,7 +237,7 @@
     card.querySelector(".card-pin").addEventListener("click", function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
-      var url = card.href;
+      var url = card.dataset.url || card.href;
       if (state.pins[url]) { delete state.pins[url]; }
       else { state.pins[url] = true; }
       savePins();
@@ -235,7 +254,7 @@
   // Group-move popover
 
   function openMoveMenu(card) {
-    var url = card.href;
+    var url = card.dataset.url || card.href;
     el.moveInput.value = state.groups[url] || "";
     el.moveMenu.hidden = false;
     var r = card.getBoundingClientRect();

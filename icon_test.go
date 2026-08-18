@@ -127,3 +127,34 @@ func TestEntryHosts(t *testing.T) {
 		}
 	}
 }
+
+// TestHandleIconAllowlist: only hosts present in the Nix generated entries
+// may reach the icon store (and its network fetches); anything else must
+// get the offline letter glyph.
+func TestHandleIconAllowlist(t *testing.T) {
+	allowed := "allowed.example.org"
+	s := newIconStore()
+	s.cache[allowed] = cachedIcon{data: []byte("REAL"), ct: "image/x-icon"}
+
+	a := &app{icons: s, iconHosts: map[string]bool{allowed: true}}
+	serve := func(host string) (int, string, string) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/icon?host="+host, nil)
+		a.handleIcon(rec, req)
+		return rec.Code, rec.Body.String(), rec.Header().Get("Content-Type")
+	}
+
+	if code, body, ct := serve(allowed); code != 200 || body != "REAL" || ct != "image/x-icon" {
+		t.Fatalf("allowlisted host: code=%d body=%q ct=%q", code, body, ct)
+	}
+	code, body, ct := serve("stranger.example.org")
+	if code != 200 || !strings.HasPrefix(ct, "image/svg+xml") {
+		t.Fatalf("unknown host: code=%d ct=%q, want letter glyph", code, ct)
+	}
+	if !strings.Contains(body, "S") {
+		t.Fatalf("letter glyph should be built from the host's first label, got %q", body)
+	}
+	if len(s.cache) != 1 {
+		t.Fatalf("unknown host must not populate the icon cache (got %d entries)", len(s.cache))
+	}
+}

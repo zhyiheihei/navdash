@@ -265,8 +265,9 @@ type app struct {
 
 	probe *prober
 
-	icons *iconStore
-	bg    *bgStore
+	icons     *iconStore
+	iconHosts map[string]bool
+	bg        *bgStore
 
 	staticFS fs.FS
 	etags    map[string]string
@@ -282,14 +283,18 @@ func newApp(cfg *config) (*app, error) {
 		return nil, err
 	}
 	a := &app{
-		cfg:      cfg,
-		client:   &http.Client{Timeout: 15 * time.Second},
-		entries:  ef,
-		probe:    newProber(probeInterval()),
-		icons:    newIconStore(),
-		bg:       newBGStore(),
-		staticFS: sub,
-		etags:    map[string]string{},
+		cfg:       cfg,
+		client:    &http.Client{Timeout: 15 * time.Second},
+		entries:   ef,
+		probe:     newProber(probeInterval()),
+		icons:     newIconStore(),
+		iconHosts: map[string]bool{},
+		bg:        newBGStore(),
+		staticFS:  sub,
+		etags:     map[string]string{},
+	}
+	for _, h := range entryHosts(ef.Entries) {
+		a.iconHosts[h] = true
 	}
 	a.buildEtags()
 	go a.probe.loop(ef.Entries)
@@ -576,11 +581,27 @@ func (a *app) handleStatic(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	ext := p[strings.LastIndex(p, "."):]
+	ext := ""
+	if i := strings.LastIndex(p, "."); i >= 0 {
+		ext = p[i:]
+	}
 	if ct, ok := contentTypes[ext]; ok {
 		w.Header().Set("Content-Type", ct)
 	}
-	if p == "index.html" {
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if ext == ".html" {
+		// The page loads no third-party anything: scripts, styles, fonts,
+		// icons and APIs are all same-origin (the theme bootstrap lives in
+		// /assets/js/theme-init.js so no inline script is needed).
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'none'; script-src 'self'; style-src 'self'; "+
+				"img-src 'self' data:; font-src 'self'; connect-src 'self'; "+
+				"base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+	}
+	if p == "index.html" || ext == ".js" || ext == ".css" {
+		// Deploy correctness: HTML/JS/CSS changes must be picked up on the
+		// next visit. The strong ETag keeps revalidation cheap (304 when
+		// unchanged); fonts and images are more stable and cache for a day.
 		w.Header().Set("Cache-Control", "no-cache")
 	} else {
 		w.Header().Set("Cache-Control", "public, max-age=86400")

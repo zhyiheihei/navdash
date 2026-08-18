@@ -8,13 +8,19 @@ import (
 	"time"
 )
 
+// validWebP returns a payload whose magic bytes sniff as image/webp.
+func validWebP(payload string) []byte {
+	hdr := []byte("RIFF\x00\x00\x00\x00WEBPVP8 ")
+	return append(hdr, []byte(payload)...)
+}
+
 func testBGStore(t *testing.T) (*bgStore, *int) {
 	t.Helper()
 	hits := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits++
 		w.Header().Set("Content-Type", "image/webp")
-		_, _ = w.Write([]byte("WEBPDATA"))
+		_, _ = w.Write(validWebP("DATA"))
 	}))
 	t.Cleanup(srv.Close)
 	s := &bgStore{client: srv.Client(), url: srv.URL}
@@ -28,7 +34,7 @@ func TestBGStoreCachesAfterFetch(t *testing.T) {
 	if _, _ = s.get(); *hits != 1 {
 		t.Fatalf("first get hits = %d, want 1", *hits)
 	}
-	if string(s.data) != "WEBPDATA" {
+	if string(s.data) != string(validWebP("DATA")) {
 		t.Fatalf("cached data = %q", s.data)
 	}
 	if _, _ = s.get(); *hits != 1 {
@@ -62,8 +68,22 @@ func TestBGStoreKeepsOldPictureOnFetchError(t *testing.T) {
 	s.url = "http://127.0.0.1:1/x"
 	s.at = time.Now().Add(-bgTTL - time.Minute)
 	data, _ := s.get()
-	if string(data) != "WEBPDATA" {
+	if string(data) != string(validWebP("DATA")) {
 		t.Fatalf("expected stale picture to survive fetch error, got %q", data)
+	}
+}
+
+// TestBGFetchRejectsNonImage: bytes that sniff as anything else than an
+// image must fail the fetch even when the header claims an image type.
+func TestBGFetchRejectsNonImage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/webp")
+		_, _ = w.Write([]byte("<html>not an image</html>"))
+	}))
+	t.Cleanup(srv.Close)
+	s := &bgStore{client: srv.Client(), url: srv.URL}
+	if _, _, err := s.fetch(); err == nil {
+		t.Fatal("fetch of non-image bytes should fail")
 	}
 }
 

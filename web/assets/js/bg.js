@@ -35,18 +35,23 @@
     return { w: w, h: h };
   }
 
-  var size = fit(main); fit(glow);
-
-  var N = Math.round(Math.min(70, size.w / 18));
+  var size = { w: 0, h: 0 };
+  var N = 0;
   var pts = [];
-  for (var i = 0; i < N; i++) {
-    pts.push({
-      x: Math.random() * size.w,
-      y: Math.random() * size.h,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      r: Math.random() * 1.6 + 0.6,
-    });
+
+  function reset() {
+    size = fit(main); fit(glow);
+    N = Math.round(Math.min(70, size.w / 18));
+    pts = [];
+    for (var i = 0; i < N; i++) {
+      pts.push({
+        x: Math.random() * size.w,
+        y: Math.random() * size.h,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        r: Math.random() * 1.6 + 0.6,
+      });
+    }
   }
 
   var mouse = { x: -9999, y: -9999 };
@@ -61,8 +66,10 @@
   var LINK = 110;     // connect particles closer than this
   var MOUSE_R = 130;  // mouse push radius
   var prev = 0;
+  var rafId = 0;
 
   function frame(now) {
+    if (!rafId) return;
     var dt = Math.min(0.05, (now - prev) / 1000 || 0.016);
     prev = now;
 
@@ -127,12 +134,35 @@
     gGlow.globalAlpha = 1;
     gGlow.globalCompositeOperation = "source-over";
 
-    requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(frame);
+  }
+
+  // The hero starts hidden in the HTML and is revealed by app.js once the
+  // session is known (anonymous) — and stays hidden for logged-in sessions,
+  // where the loop must not run at all. Tie the loop to hero visibility.
+  var hero = document.getElementById("hero");
+
+  function start() {
+    if (rafId) return;
+    reset();
+    prev = 0;
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function stop() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+  }
+
+  if (hero) {
+    if (!hero.hidden) start();
+    new MutationObserver(function () {
+      if (hero.hidden) stop();
+      else start();
+    }).observe(hero, { attributes: true, attributeFilter: ["hidden"] });
   }
 
   window.addEventListener("resize", function () {
-    size = fit(main); fit(glow);
+    if (rafId) reset();
   });
-
-  requestAnimationFrame(frame);
 })();
