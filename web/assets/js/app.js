@@ -193,16 +193,18 @@
     card.querySelector(".card-suffix").textContent = suffix;
     card.querySelector(".card-host").textContent = e.host;
 
-    // Card icon: flat icon straight from the FlatNas icon site
-    // (https://nasicon.top), keyed by the service label; Nix may override
-    // the label per service via the entry's icon field. Missing icons are
-    // simply hidden — no fallback machinery.
+    // Card icon: mapped entries (Nix sets e.icon) are self-hosted via
+    // /api/icon so they survive the FlatNas icon site going down; unmapped
+    // entries fall back to the subdomain label straight from nasicon.top.
+    // Missing icons are simply hidden — no further fallback machinery.
     var icon = card.querySelector(".card-icon");
     var iconName = e.icon || highlight;
     if (iconName) {
       icon.decoding = "async";
       icon.alt = highlight;
-      icon.src = "https://nasicon.top/icon/" + encodeURIComponent(iconName) + ".png";
+      icon.src = e.icon
+        ? "/api/icon/" + encodeURIComponent(iconName) + ".png"
+        : "https://nasicon.top/icon/" + encodeURIComponent(iconName) + ".png";
       icon.addEventListener("error", function () { icon.hidden = true; });
     } else {
       icon.hidden = true;

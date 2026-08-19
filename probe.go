@@ -35,6 +35,10 @@ type probeStatus struct {
 	UpdatedAt int64 `json:"updated_at"`
 }
 
+// probeUserAgent identifies the health prober in outbound requests. It is
+// shared by head/get so the two fallback methods never drift apart.
+const probeUserAgent = "navdash-probe/0.6"
+
 type prober struct {
 	interval time.Duration
 	client   *http.Client
@@ -245,9 +249,7 @@ func alt8443URL(rawURL string) string {
 		return ""
 	}
 	host := u.Hostname()
-	if !strings.HasSuffix(host, ".zhyi.xin") &&
-		!strings.HasSuffix(host, ".zhyi.cc") &&
-		!strings.HasSuffix(host, ".moliy.site") {
+	if !isZhyiDomain(host) {
 		return ""
 	}
 	c := *u
@@ -255,12 +257,22 @@ func alt8443URL(rawURL string) string {
 	return c.String()
 }
 
+// isZhyiDomain reports whether host is one of the personal zhyi domains whose
+// on-premise services are DNAT'd from :8443 (the home WAN port 443 is blocked
+// by the ISP). Cloud-hosted services answer on 443 and never trigger the
+// retry.
+func isZhyiDomain(host string) bool {
+	return strings.HasSuffix(host, ".zhyi.xin") ||
+		strings.HasSuffix(host, ".zhyi.cc") ||
+		strings.HasSuffix(host, ".moliy.site")
+}
+
 func (p *prober) head(rawURL string) (int, error) {
 	req, err := http.NewRequest(http.MethodHead, rawURL, nil)
 	if err != nil {
 		return 0, err
 	}
-	req.Header.Set("User-Agent", "navdash-probe/0.3")
+	req.Header.Set("User-Agent", probeUserAgent)
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return 0, err
@@ -277,7 +289,7 @@ func (p *prober) get(rawURL string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	req.Header.Set("User-Agent", "navdash-probe/0.3")
+	req.Header.Set("User-Agent", probeUserAgent)
 	req.Header.Set("Range", "bytes=0-0")
 	resp, err := p.client.Do(req)
 	if err != nil {

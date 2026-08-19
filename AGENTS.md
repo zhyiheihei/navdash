@@ -29,8 +29,9 @@ NAVDASH_SESSION_KEY=<32+ 字节 hex> \
 ./navdash
 ```
 
-- 默认监听 `127.0.0.1:13828`；NixOS 部署固定 `127.0.0.1:13833`
-  （见 nixos-config `helpers/constants/ports.nix`、`nixos/optional-apps/navdash.nix`）。
+- 默认监听 `127.0.0.1:13833`，与 NixOS 部署一致
+  （见 nixos-config `helpers/constants/ports.nix`、`nixos/optional-apps/navdash.nix`；
+  `13828` 已让给 SunPanel）。
 - entries.json 可由 `NAVDASH_ENTRIES` 指定，或交互式输入；格式见 README。
 
 ## 约定

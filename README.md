@@ -22,13 +22,14 @@ Host Grotesk + DM Sans），无构建步骤；后端为纯 Go 标准库单二进
 | `/auth/logout` | 清除 session |
 | `/api/me` | `{authenticated, username, email}` |
 | `/api/entries` | `{entries: [...]}`（按登录态过滤） |
+| `/api/icon/<名>.png` | 自托管卡片图标（需 `NAVDASH_ICON_DIR`） |
 | `/healthz` | 健康检查 |
 
 ## 配置（环境变量）
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `NAVDASH_LISTEN` | 否 | 监听地址，默认 `127.0.0.1:13828`（NixOS 集成固定为 `127.0.0.1:13833`，见 nixos-config `helpers/constants/ports.nix`） |
+| `NAVDASH_LISTEN` | 否 | 监听地址，默认 `127.0.0.1:13833`（与 nixos-config `helpers/constants/ports.nix` 的 `Navdash` 一致；`13828` 已让给 SunPanel） |
 | `NAVDASH_BASE_URL` | 否 | 公开 origin（构造 redirect_uri），默认 `http://<listen>` |
 | `NAVDASH_OIDC_ISSUER` | 是 | OIDC issuer，如 `https://login.example.com` |
 | `NAVDASH_OIDC_CLIENT_ID` | 是 | client id |
@@ -36,6 +37,7 @@ Host Grotesk + DM Sans），无构建步骤；后端为纯 Go 标准库单二进
 | `NAVDASH_SESSION_KEY` | 是 | HMAC 密钥（≥32 字节 hex） |
 | `NAVDASH_ALLOWED_USERS` | 否 | 逗号分隔的 `preferred_username` 白名单；空 = 不限制 |
 | `NAVDASH_ENTRIES` | 否 | entries.json 路径，默认 `./entries.json` |
+| `NAVDASH_ICON_DIR` | 否 | 自托管卡片图标目录（`<名>.png`），经 `/api/icon/<名>.png` 下发；空 = 全部走 nasicon.top |
 
 ## entries.json 格式
 
