@@ -257,6 +257,10 @@ type entry struct {
 	// theme-aware SVG instead of fetching a PNG, so they never depend on an
 	// external icon CDN. Empty means no brand mark is known.
 	Brand string `json:"brand"`
+	// Category sub-groups 快捷 (quick) entries by provider type (云主机/AI/
+	// DNS/...). Host-based entries (公开/私有) leave it empty and sub-group
+	// by Host instead.
+	Category string `json:"category"`
 }
 
 type entryFile struct {

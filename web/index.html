@@ -42,6 +42,13 @@
       <kbd class="nav-search-kbd" id="search-kbd">/</kbd>
     </label>
 
+    <div class="nav-filter" id="nav-filter" role="tablist" aria-label="分组筛选">
+      <button class="nav-filter-btn is-active" data-filter="all" role="tab" aria-selected="true">全部</button>
+      <button class="nav-filter-btn" data-filter="公开" role="tab" aria-selected="false">公开</button>
+      <button class="nav-filter-btn" data-filter="私有" role="tab" aria-selected="false">私有</button>
+      <button class="nav-filter-btn" data-filter="快捷" role="tab" aria-selected="false">快捷</button>
+    </div>
+
     <div class="nav-actions">
       <button class="nav-icon-btn" id="home-btn" title="设为浏览器主页" aria-label="设为浏览器主页">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -101,7 +108,7 @@
       <h2 class="group-title"></h2>
       <span class="group-count"></span>
     </div>
-    <div class="group-grid"></div>
+    <div class="group-body"></div>
   </section>
 </template>
 

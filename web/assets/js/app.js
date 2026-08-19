@@ -17,11 +17,13 @@
     query: "",
     pins: {},            // url -> true (persisted)
     groups: {},          // url -> custom group name (persisted)
+    filter: "all",       // 语义筛选：all | 公开 | 私有 | 快捷
   };
 
   var el = {
     search: document.getElementById("search"),
     groups: document.getElementById("groups"),
+    filter: document.getElementById("nav-filter"),
     hero: document.getElementById("hero"),
     authSlot: document.getElementById("auth-slot"),
     themeBtn: document.getElementById("theme-btn"),
@@ -148,10 +150,30 @@
     );
   }
 
+  // 语义分组（公开/私有/快捷）在 Nix 求值期写入 e.group；无 group 的条目
+  // 回退到物理主机名。筛选按钮据此只显示选中的那一组。
+  function semanticGroup(e) {
+    return e.group || e.host || "other";
+  }
+
+  // 语义分组内的子分类键：快捷按 provider 类型（e.category），公开/私有按
+  // 物理主机（e.host），让每个大组内部再分小节，避免单组卡片过长。
+  function subKey(e) {
+    var g = semanticGroup(e);
+    if (g === "快捷") return e.category || "其他";
+    return e.host || "其他";
+  }
+
   function renderCards() {
     el.groups.textContent = "";
     var q = state.query.trim().toLowerCase();
     var kept = state.entries.filter(function (e) { return !q || matches(e, q); });
+
+    // 语义筛选：非「全部」时只保留对应语义分组的条目（置顶/自定义分组
+    // 也一并过滤，点「快捷」就只看快捷卡片）。
+    if (state.filter !== "all") {
+      kept = kept.filter(function (e) { return semanticGroup(e) === state.filter; });
+    }
 
     if (kept.length === 0) {
       var empty = document.createElement("div");
@@ -196,12 +218,40 @@
       var section = el.tplGroup.content.firstElementChild.cloneNode(true);
       section.querySelector(".group-title").textContent = g.key;
       section.querySelector(".group-count").textContent = g.entries.length + " 项";
-      var grid = section.querySelector(".group-grid");
-      g.entries.forEach(function (e) { grid.appendChild(renderCard(e)); });
+      var body = section.querySelector(".group-body");
+
+      // 语义分组内部再按子分类分小节；置顶/自定义分组保持单网格。
+      if (SEMANTIC.indexOf(g.key) !== -1) {
+        var subs = {};
+        var subOrder = [];
+        g.entries.forEach(function (e) {
+          var sk = subKey(e);
+          if (!subs[sk]) { subs[sk] = []; subOrder.push(sk); }
+          subs[sk].push(e);
+        });
+        subOrder.sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
+        subOrder.forEach(function (sk) {
+          var head = document.createElement("h3");
+          head.className = "group-sub";
+          head.textContent = sk;
+          body.appendChild(head);
+          body.appendChild(buildGrid(subs[sk]));
+        });
+      } else {
+        body.appendChild(buildGrid(g.entries));
+      }
+
       el.groups.appendChild(section);
     });
 
     el.groups.querySelectorAll(".card").forEach(wireCard);
+  }
+
+  function buildGrid(entries) {
+    var grid = document.createElement("div");
+    grid.className = "group-grid";
+    entries.forEach(function (e) { grid.appendChild(renderCard(e)); });
+    return grid;
   }
 
   function renderCard(e) {
@@ -375,6 +425,19 @@
       state.query = el.search.value;
       renderCards();
     }, 90);
+  });
+
+  // 分组筛选：点选「全部/公开/私有/快捷」只显示对应语义分组，并高亮当前项。
+  el.filter.addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".nav-filter-btn");
+    if (!btn) return;
+    state.filter = btn.dataset.filter || "all";
+    el.filter.querySelectorAll(".nav-filter-btn").forEach(function (b) {
+      var on = b === btn;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    renderCards();
   });
 
   el.themeBtn.addEventListener("click", function () {

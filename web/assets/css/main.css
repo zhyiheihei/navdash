@@ -305,6 +305,38 @@ body::before {
   background: var(--ds-color-bg-surface-2);
 }
 
+/* 分组筛选：全部/公开/私有/快捷 分段控件，点选后只显示对应语义分组。 */
+.nav-filter {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--ds-radius-pill);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-surface-1);
+}
+.nav-filter-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: var(--ds-radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-filter-btn:hover { color: var(--ds-color-text-primary); }
+.nav-filter-btn.is-active {
+  background: var(--ds-color-bg-hover);
+  color: var(--ds-color-text-primary);
+  box-shadow: inset 0 0 0 1px var(--ds-color-border-default);
+}
+
 .nav-actions {
   display: flex;
   align-items: center;
@@ -651,6 +683,17 @@ body::before {
   color: var(--ds-color-text-description);
 }
 
+/* 语义分组内的子分类标题（快捷按 provider 类型、公开/私有按主机）。 */
+.group-sub {
+  margin: var(--ds-space-4) 0 var(--ds-space-3);
+  font-family: var(--ds-font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ds-color-text-description);
+}
+.group-sub:first-child { margin-top: 0; }
+
 .group-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -983,6 +1026,7 @@ body::before {
   .nav-logo-text { font-size: 18px; }
   .nav-search { max-width: none; }
   .nav-search-kbd { display: none; }
+  .nav-filter { display: none; }
   .hero { min-height: 70svh; }
   .group-grid { grid-template-columns: 1fr; }
 }
