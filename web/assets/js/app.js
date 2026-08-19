@@ -72,6 +72,28 @@
     return typeof st.latency_ms === "number" ? st.latency_ms : 0;
   }
 
+  // Render a Simple Icons brand mark as a data-URI SVG. The fill uses the
+  // brand color in light theme, but dark brand colors (e.g. GitHub #181717,
+  // Ollama #000000) would vanish on the dark background, so in dark theme we
+  // switch to a light neutral that keeps the mark visible. The path data is
+  // self-hosted in icons.js (CC0), so no external CDN is involved.
+  function brandSVG(brand) {
+    var dark = document.documentElement.dataset.theme === "dark";
+    var fill = dark && isDarkHex(brand.hex) ? "#e6e6e6" : "#" + brand.hex;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
+      '<path fill="' + fill + '" d="' + brand.path + '"/></svg>';
+    return "data:image/svg+xml," + encodeURIComponent(svg);
+  }
+
+  // A brand color is "dark" when its relative luminance is low enough that it
+  // would be hard to see on the dark card surface.
+  function isDarkHex(hex) {
+    var r = parseInt(hex.slice(0, 2), 16);
+    var g = parseInt(hex.slice(2, 4), 16);
+    var b = parseInt(hex.slice(4, 6), 16);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 90;
+  }
+
   function latencyText(url) {
     var st = state.status[url];
     if (!st) return "检测中…";
@@ -206,21 +228,30 @@
     card.querySelector(".card-suffix").textContent = suffix;
     card.querySelector(".card-host").textContent = e.host;
 
-    // Card icon: mapped entries (Nix sets e.icon) are self-hosted via
-    // /api/icon so they survive the FlatNas icon site going down; unmapped
-    // entries fall back to the subdomain label straight from nasicon.top.
+    // Card icon, in priority order:
+    //   1. e.brand — a Simple Icons slug rendered inline as a theme-aware SVG
+    //      (self-hosted, no external CDN, dark brand colors stay visible).
+    //   2. e.icon — a mapped PNG self-hosted via /api/icon.
+    //   3. the highlight label straight from nasicon.top (unmapped entries).
     // Missing icons are simply hidden — no further fallback machinery.
     var icon = card.querySelector(".card-icon");
-    var iconName = e.icon || highlight;
-    if (iconName) {
-      icon.decoding = "async";
-      icon.alt = highlight;
-      icon.src = e.icon
-        ? "/api/icon/" + encodeURIComponent(iconName) + ".png"
-        : "https://nasicon.top/icon/" + encodeURIComponent(iconName) + ".png";
-      icon.addEventListener("error", function () { icon.hidden = true; });
+    var brand = BRAND_ICONS[e.brand];
+    if (brand) {
+      icon.hidden = false;
+      icon.alt = brand.title;
+      icon.src = brandSVG(brand);
     } else {
-      icon.hidden = true;
+      var iconName = e.icon || highlight;
+      if (iconName) {
+        icon.decoding = "async";
+        icon.alt = highlight;
+        icon.src = e.icon
+          ? "/api/icon/" + encodeURIComponent(iconName) + ".png"
+          : "https://nasicon.top/icon/" + encodeURIComponent(iconName) + ".png";
+        icon.addEventListener("error", function () { icon.hidden = true; });
+      } else {
+        icon.hidden = true;
+      }
     }
 
     var badge = card.querySelector(".card-badge");
@@ -350,6 +381,9 @@
     var next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem("nav-theme", next); } catch (err) { /* private mode */ }
+    // Brand icons are rendered as data-URI SVGs whose fill depends on the
+    // theme; re-render so dark brand colors switch to a visible neutral.
+    renderCards();
   });
 
   // "/" focuses search (unless already typing in it).

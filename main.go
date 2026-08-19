@@ -252,6 +252,11 @@ type entry struct {
 	// Icon names the card icon at the FlatNas icon site (nasicon.top);
 	// empty means the frontend falls back to the highlight label.
 	Icon string `json:"icon"`
+	// Brand is a Simple Icons slug (e.g. "github", "cloudflare") for entries
+	// whose logo is a known brand mark. The frontend renders these inline as
+	// theme-aware SVG instead of fetching a PNG, so they never depend on an
+	// external icon CDN. Empty means no brand mark is known.
+	Brand string `json:"brand"`
 }
 
 type entryFile struct {

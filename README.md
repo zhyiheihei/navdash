@@ -53,7 +53,8 @@ Host Grotesk + DM Sans），无构建步骤；后端为纯 Go 标准库单二进
       "host": "greencloud",
       "access": "public",
       "group": "公开",
-      "icon": "Gitea_A"
+      "icon": "Gitea_A",
+      "brand": ""
     }
   ]
 }
@@ -62,6 +63,9 @@ Host Grotesk + DM Sans），无构建步骤；后端为纯 Go 标准库单二进
 - `group`：语义分组（公开/私有/快捷），由 Nix 求值时按域名语义赋值；前端按
   此分组，缺省回退到 `host`。`icon` 可选，映射到 `/api/icon/<名>.png` 自托管
   图标，缺省回退到 nasicon.top。
+- `brand`：Simple Icons 的 slug（如 `github`、`cloudflare`），前端内联渲染成
+  主题感知的 SVG（暗色品牌色在暗色主题下自动换成可见中性色），不依赖外部
+  图标 CDN。品牌标数据自托管于 `web/assets/js/icons.js`（CC0-1.0）。
 
 ## 字体
 
