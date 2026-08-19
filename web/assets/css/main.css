@@ -10,35 +10,35 @@
   font-family: "Host Grotesk";
   font-style: normal;
   font-weight: 300 800;
-  font-display: swap;
+  font-display: optional;
   src: url("/assets/fonts/host-grotesk-latin.woff2") format("woff2");
 }
 @font-face {
   font-family: "DM Sans";
   font-style: normal;
   font-weight: 400 700;
-  font-display: swap;
+  font-display: optional;
   src: url("/assets/fonts/dm-sans-var.woff2") format("woff2");
 }
 @font-face {
   font-family: "Montserrat";
   font-style: normal;
   font-weight: 400;
-  font-display: swap;
+  font-display: optional;
   src: url("/assets/fonts/montserrat.woff2") format("woff2");
 }
 @font-face {
   font-family: "Montserrat";
   font-style: normal;
   font-weight: 500;
-  font-display: swap;
+  font-display: optional;
   src: url("/assets/fonts/montserrat-500.woff2") format("woff2");
 }
 @font-face {
   font-family: "Montserrat";
   font-style: normal;
   font-weight: 600;
-  font-display: swap;
+  font-display: optional;
   src: url("/assets/fonts/montserrat-600.woff2") format("woff2");
 }
 
@@ -619,7 +619,8 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: var(--ds-space-7);
-  animation: ds-hero-enter 0.7s 0.1s ease both;
+  /* 卡片是异步插入的，再叠一层入场淡入会让「出现即定型」变成
+     「一秒后样式才稳定」；去掉动画，卡片插入即最终样式。 */
   border-top: 1px solid var(--ds-color-border-subtle);
   padding-top: var(--ds-space-9);
 }
