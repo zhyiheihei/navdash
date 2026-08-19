@@ -759,6 +759,8 @@ body::before {
   color: var(--ds-color-text-description);
   letter-spacing: 0.03em;
 }
+/* 快捷分组的外部服务商没有「物理主机」，host 留空；隐藏空节点避免占位 */
+.card-host:empty { display: none; }
 
 /* card meta row: health dot + latency on the left, host on the right */
 .card-meta {
