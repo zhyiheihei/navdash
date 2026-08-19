@@ -805,6 +805,74 @@ body::before {
 /* 快捷分组的外部服务商没有「物理主机」，host 留空；隐藏空节点避免占位 */
 .card-host:empty { display: none; }
 
+/* card live-metrics row: host utilisation bars (prometheusmetric) or
+   service-internal widget items (immich/jellyfin/gitea). Sits between the URL
+   line and the meta row; hidden until /api/metrics has data. */
+.card-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ds-color-border-subtle);
+}
+.card-metrics:empty { border-top: 0; padding-top: 0; margin-top: 0; }
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.metric-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--ds-color-border-subtle);
+  overflow: hidden;
+}
+.metric-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ds-color-brand);
+  transition: width 0.5s ease;
+}
+.metric-fill[data-kind="memory"] { background: var(--ds-color-warn, #febc2e); }
+.metric-fill[data-kind="disk"] { background: var(--ds-color-danger, #ff5f57); }
+.metric-label {
+  flex: none;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-color-text-description);
+  min-width: 58px;
+  text-align: right;
+}
+
+/* service widget data: compact stat pills (value + label) */
+.svc-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--ds-radius-pill);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface-elevated, transparent);
+}
+.svc-metric-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-color-text-primary);
+}
+.svc-metric-label {
+  font-size: 11px;
+  color: var(--ds-color-text-description);
+}
+.card-metrics:has(.svc-metric) {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 /* card meta row: health dot + latency on the left, host on the right */
 .card-meta {
   display: flex;

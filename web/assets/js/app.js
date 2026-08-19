@@ -14,6 +14,7 @@
     username: "",
     entries: [],
     status: {},          // url -> {status, latency_ms, code}
+    metrics: null,       // {hosts: hostname -> {cpu,memory,disk}, services: url -> widgetData}
     query: "",
     pins: {},            // url -> true (persisted)
     groups: {},          // url -> custom group name (persisted)
@@ -156,12 +157,11 @@
     return e.group || e.host || "other";
   }
 
-  // 语义分组内的子分类键：快捷按 provider 类型（e.category），公开/私有按
-  // 物理主机（e.host），让每个大组内部再分小节，避免单组卡片过长。
+  // 语义分组内的子分类键：功能域（e.category）在 Nix 求值期由
+  // serviceCategories 写入，公开/私有/快捷都有；无 category 的条目回退
+  // 到物理主机名，让每个大组内部再分小节，避免单组卡片过长。
   function subKey(e) {
-    var g = semanticGroup(e);
-    if (g === "快捷") return e.category || "其他";
-    return e.host || "其他";
+    return e.category || e.host || "其他";
   }
 
   function renderCards() {
@@ -326,7 +326,59 @@
 
     var pinBtn = card.querySelector(".card-pin");
     pinBtn.classList.toggle("is-pinned", !!state.pins[e.url]);
+
+    renderMetrics(card, e);
+
     return card;
+  }
+
+  // Live service data on the card body:
+  //   - prometheusmetric cards render CPU / memory / disk percentage bars from
+  //     state.metrics.hosts[metric_host || host].
+  //   - immich/jellyfin/gitea cards render their service-internal widget items
+  //     (photos, library counts, repos...) from state.metrics.services[url].
+  // Anonymous or not-yet-loaded state leaves the row empty (hidden).
+  function renderMetrics(card, e) {
+    var row = card.querySelector(".card-metrics");
+    row.textContent = "";
+
+    if (!state.metrics) return; // not loaded yet — keep hidden
+    if (e.widget === "prometheusmetric") {
+      var hostKey = e.metric_host || e.host || "";
+      var m = state.metrics.hosts && state.metrics.hosts[hostKey];
+      if (!m) return;
+      row.hidden = false;
+      var bars = [
+        { k: "cpu", label: "CPU", v: m.cpu },
+        { k: "memory", label: "内存", v: m.memory },
+        { k: "disk", label: "磁盘", v: m.disk },
+      ];
+      bars.forEach(function (b) {
+        if (typeof b.v !== "number") return;
+        var b_ = document.createElement("span");
+        b_.className = "metric";
+        b_.innerHTML =
+          '<span class="metric-track"><span class="metric-fill" data-kind="' + b.k + '"></span></span>' +
+          '<span class="metric-label">' + b.label + ' ' + Math.round(b.v) + '%</span>';
+        b_.querySelector(".metric-fill").style.width = Math.min(100, Math.max(0, b.v)) + "%";
+        row.appendChild(b_);
+      });
+      return;
+    }
+
+    // Service widget data (immich / jellyfin / gitea ...)
+    if (!e.widget) return;
+    var svc = state.metrics.services && state.metrics.services[e.url];
+    if (!svc || !svc.items || !svc.items.length) return;
+    row.hidden = false;
+    svc.items.forEach(function (it) {
+      var span = document.createElement("span");
+      span.className = "svc-metric";
+      span.innerHTML = '<span class="svc-metric-value"></span><span class="svc-metric-label"></span>';
+      span.querySelector(".svc-metric-value").textContent = it.value;
+      span.querySelector(".svc-metric-label").textContent = it.label;
+      row.appendChild(span);
+    });
   }
 
   function wireCard(card) {
@@ -467,6 +519,16 @@
         if (el.groups.childElementCount) renderCards();
       })
       .catch(function () { /* keep last known */ });
+    // Live metric/widget data refreshes on the same cadence. Only re-render
+    // when metrics actually changed so the page isn't rebuilt on every tick.
+    fetch("/api/metrics", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (state.metrics && JSON.stringify(state.metrics) === JSON.stringify(d)) return;
+        state.metrics = d || { hosts: {}, services: {} };
+        if (el.groups.childElementCount) renderCards();
+      })
+      .catch(function () { /* keep last known */ });
   }, 30000);
 
   // ------------------------------------------------------------------
@@ -480,13 +542,14 @@
   }
 
   loadLocal();
-  Promise.all([getJSON("/api/me"), getJSON("/api/entries"), getJSON("/api/status")])
+  Promise.all([getJSON("/api/me"), getJSON("/api/entries"), getJSON("/api/status"), getJSON("/api/metrics")])
     .then(function (results) {
       var me = results[0];
       state.authenticated = !!me.authenticated;
       state.username = me.username || "";
       state.entries = results[1].entries || [];
       state.status = results[2].status || {};
+      state.metrics = results[3] || { hosts: {}, services: {} };
       render();
     })
     .catch(function (err) {

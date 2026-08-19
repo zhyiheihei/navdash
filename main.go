@@ -54,6 +54,13 @@ type config struct {
 	allowedUsers map[string]bool
 	entriesPath  string
 	iconDir      string
+	// prometheusURL is the read-only Prometheus query endpoint used for
+	// prometheusmetric cards (host CPU/mem/disk). On the same host it is the
+	// local listen address (http://127.0.0.1:9090); empty disables metrics.
+	prometheusURL string
+	// widgetKeys carries service API credentials for the service-internal
+	// data widgets (immich/jellyfin/gitea), keyed by widget type.
+	widgetKeys map[string]string
 }
 
 func envOr(key, def string) string {
@@ -65,12 +72,18 @@ func envOr(key, def string) string {
 
 func loadConfig() (*config, error) {
 	c := &config{
-		listen:       envOr("NAVDASH_LISTEN", "127.0.0.1:13833"),
-		issuer:       strings.TrimRight(envOr("NAVDASH_OIDC_ISSUER", ""), "/"),
-		clientID:     os.Getenv("NAVDASH_OIDC_CLIENT_ID"),
-		clientSecret: os.Getenv("NAVDASH_OIDC_CLIENT_SECRET"),
-		entriesPath:  envOr("NAVDASH_ENTRIES", "entries.json"),
-		iconDir:      os.Getenv("NAVDASH_ICON_DIR"),
+		listen:        envOr("NAVDASH_LISTEN", "127.0.0.1:13833"),
+		issuer:        strings.TrimRight(envOr("NAVDASH_OIDC_ISSUER", ""), "/"),
+		clientID:      os.Getenv("NAVDASH_OIDC_CLIENT_ID"),
+		clientSecret:  os.Getenv("NAVDASH_OIDC_CLIENT_SECRET"),
+		entriesPath:   envOr("NAVDASH_ENTRIES", "entries.json"),
+		iconDir:       os.Getenv("NAVDASH_ICON_DIR"),
+		prometheusURL: strings.TrimRight(envOr("NAVDASH_PROMETHEUS_URL", ""), "/"),
+		widgetKeys: map[string]string{
+			"immich":   os.Getenv("NAVDASH_WIDGET_IMMICH_KEY"),
+			"jellyfin": os.Getenv("NAVDASH_WIDGET_JELLYFIN_KEY"),
+			"gitea":    os.Getenv("NAVDASH_WIDGET_GITEA_KEY"),
+		},
 	}
 	raw := envOr("NAVDASH_BASE_URL", "http://"+c.listen)
 	u, err := url.Parse(raw)
@@ -257,10 +270,21 @@ type entry struct {
 	// theme-aware SVG instead of fetching a PNG, so they never depend on an
 	// external icon CDN. Empty means no brand mark is known.
 	Brand string `json:"brand"`
-	// Category sub-groups 快捷 (quick) entries by provider type (云主机/AI/
-	// DNS/...). Host-based entries (公开/私有) leave it empty and sub-group
-	// by Host instead.
+	// Category sub-groups entries by functional domain (AI 链路/内容与通讯/
+	// ...), assigned at Nix evaluation time by serviceCategories. Both host-
+	// based (公开/私有) and 快捷 (quick) entries carry it; the frontend
+	// sub-groups the semantic group by this value. Empty falls back to host.
 	Category string `json:"category"`
+	// Widget names the service-specific data widget to show on this card
+	// (e.g. "prometheusmetric", "immich", "jellyfin", "gitea"). Empty means
+	// the card shows no live service data. For prometheusmetric cards the
+	// frontend renders host CPU/mem/disk from /api/metrics; the other widget
+	// types fetch their service's own API via /api/widget.
+	Widget string `json:"widget"`
+	// MetricHost is the Prometheus instance label (node exporter hostname)
+	// whose CPU/mem/disk a prometheusmetric card should display. It equals the
+	// node's hostname; empty means the widget uses Host.
+	MetricHost string `json:"metric_host,omitempty"`
 }
 
 type entryFile struct {
@@ -295,6 +319,8 @@ type app struct {
 
 	bg *bgStore
 
+	widgets *widgetCollector
+
 	staticFS fs.FS
 	etags    map[string]string
 }
@@ -321,6 +347,10 @@ func newApp(cfg *config) (*app, error) {
 	go a.probe.loop(ef.Entries)
 	// Warm the hero background so the first visitor doesn't pay the fetch.
 	go func() { a.bg.get() }()
+	a.widgets = newWidgetCollector(a)
+	if a.widgets.enabled() {
+		go a.widgets.loop(ef.Entries)
+	}
 	return a, nil
 }
 
@@ -567,6 +597,31 @@ func (a *app) handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": out})
 }
 
+// handleMetrics serves the cached live service data (host CPU/mem/disk for
+// prometheusmetric cards plus service-internal widget data), filtered to the
+// entries the requester can see. Anonymous visitors only ever see public
+// cards, so their metric payload is empty (no host metrics are public).
+func (a *app) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	if a.widgets == nil || !a.widgets.enabled() {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"hosts":    map[string]*hostMetric{},
+			"services": map[string]*widgetData{},
+		})
+		return
+	}
+	_, authed := a.currentSession(r)
+	hosts := a.widgets.snapshotHosts()
+	services := a.widgets.snapshotServices()
+	if !authed {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"hosts":    map[string]*hostMetric{},
+			"services": map[string]*widgetData{},
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"hosts": hosts, "services": services})
+}
+
 // ---------------------------------------------------------------------------
 // Static assets
 
@@ -685,6 +740,7 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("/api/me", a.handleMe)
 	mux.HandleFunc("/api/entries", a.handleEntries)
 	mux.HandleFunc("/api/status", a.handleStatus)
+	mux.HandleFunc("/api/metrics", a.handleMetrics)
 	mux.HandleFunc("/api/bg", a.handleBG)
 	mux.HandleFunc("/api/icon/", a.handleIcon)
 	mux.HandleFunc("/", a.handleStatic)
