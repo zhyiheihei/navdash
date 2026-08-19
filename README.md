@@ -51,11 +51,17 @@ Host Grotesk + DM Sans），无构建步骤；后端为纯 Go 标准库单二进
       "proto": "https://",
       "url": "https://git.zhyi.xin",
       "host": "greencloud",
-      "access": "public"
+      "access": "public",
+      "group": "公开",
+      "icon": "Gitea_A"
     }
   ]
 }
 ```
+
+- `group`：语义分组（公开/私有/快捷），由 Nix 求值时按域名语义赋值；前端按
+  此分组，缺省回退到 `host`。`icon` 可选，映射到 `/api/icon/<名>.png` 自托管
+  图标，缺省回退到 nasicon.top。
 
 ## 字体
 
