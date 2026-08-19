@@ -193,16 +193,16 @@
     card.querySelector(".card-suffix").textContent = suffix;
     card.querySelector(".card-host").textContent = e.host;
 
-    // Card icon: server-side favicon when available, deterministic letter
-    // glyph otherwise (see /api/icon). The ?v= cache-buster lets the later
-    // refresh pick up a favicon that was fetched after first paint.
+    // Card icon: flat icon straight from the FlatNas icon site
+    // (https://nasicon.top), keyed by the service label; Nix may override
+    // the label per service via the entry's icon field. Missing icons are
+    // simply hidden — no fallback machinery.
     var icon = card.querySelector(".card-icon");
-    if (host) {
+    var iconName = e.icon || highlight;
+    if (iconName) {
       icon.decoding = "async";
       icon.alt = highlight;
-      icon.src = "/api/icon?host=" + encodeURIComponent(host) + "&v=2";
-      // Server always answers (real favicon or letter glyph); if the image
-      // itself fails to load, drop it rather than show a broken frame.
+      icon.src = "https://nasicon.top/icon/" + encodeURIComponent(iconName) + ".png";
       icon.addEventListener("error", function () { icon.hidden = true; });
     } else {
       icon.hidden = true;
@@ -376,17 +376,6 @@
       state.entries = results[1].entries || [];
       state.status = results[2].status || {};
       render();
-      // The server prefetches favicons in the background after boot; letter
-      // glyphs render instantly, then this pass swaps in real favicons once
-      // the prefetch has usually settled.
-      setTimeout(function () {
-        document.querySelectorAll(".card-icon").forEach(function (img) {
-          if (!img.src) return;
-          var u = new URL(img.src);
-          u.searchParams.set("v", "3");
-          img.src = u.toString();
-        });
-      }, 6000);
     })
     .catch(function (err) {
       console.error(err);

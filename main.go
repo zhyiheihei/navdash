@@ -233,6 +233,9 @@ type entry struct {
 	URL       string `json:"url"`
 	Host      string `json:"host"`
 	Access    string `json:"access"`
+	// Icon names the card icon at the FlatNas icon site (nasicon.top);
+	// empty means the frontend falls back to the highlight label.
+	Icon string `json:"icon"`
 }
 
 type entryFile struct {
@@ -265,9 +268,7 @@ type app struct {
 
 	probe *prober
 
-	icons     *iconStore
-	iconHosts map[string]bool
-	bg        *bgStore
+	bg *bgStore
 
 	staticFS fs.FS
 	etags    map[string]string
@@ -283,22 +284,16 @@ func newApp(cfg *config) (*app, error) {
 		return nil, err
 	}
 	a := &app{
-		cfg:       cfg,
-		client:    &http.Client{Timeout: 15 * time.Second},
-		entries:   ef,
-		probe:     newProber(probeInterval()),
-		icons:     newIconStore(),
-		iconHosts: map[string]bool{},
-		bg:        newBGStore(),
-		staticFS:  sub,
-		etags:     map[string]string{},
-	}
-	for _, h := range entryHosts(ef.Entries) {
-		a.iconHosts[h] = true
+		cfg:      cfg,
+		client:   &http.Client{Timeout: 15 * time.Second},
+		entries:  ef,
+		probe:    newProber(probeInterval()),
+		bg:       newBGStore(),
+		staticFS: sub,
+		etags:    map[string]string{},
 	}
 	a.buildEtags()
 	go a.probe.loop(ef.Entries)
-	go a.icons.prefetch(entryHosts(ef.Entries))
 	// Warm the hero background so the first visitor doesn't pay the fetch.
 	go func() { a.bg.get() }()
 	return a, nil
@@ -590,13 +585,14 @@ func (a *app) handleStatic(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	if ext == ".html" {
-		// The page loads no third-party anything: scripts, styles, fonts,
-		// icons and APIs are all same-origin (the theme bootstrap lives in
+		// Everything is same-origin except card icons, which come straight
+		// from the FlatNas icon site (the theme bootstrap lives in
 		// /assets/js/theme-init.js so no inline script is needed).
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'none'; script-src 'self'; style-src 'self'; "+
-				"img-src 'self' data:; font-src 'self'; connect-src 'self'; "+
-				"base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+				"img-src 'self' data: https://nasicon.top; font-src 'self'; "+
+				"connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; "+
+				"form-action 'self'")
 	}
 	if p == "index.html" || ext == ".js" || ext == ".css" {
 		// Deploy correctness: HTML/JS/CSS changes must be picked up on the
@@ -625,7 +621,6 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("/api/me", a.handleMe)
 	mux.HandleFunc("/api/entries", a.handleEntries)
 	mux.HandleFunc("/api/status", a.handleStatus)
-	mux.HandleFunc("/api/icon", a.handleIcon)
 	mux.HandleFunc("/api/bg", a.handleBG)
 	mux.HandleFunc("/", a.handleStatic)
 	return logRequests(mux)

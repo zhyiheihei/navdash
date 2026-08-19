@@ -379,6 +379,9 @@ body::before {
   min-height: 100svh;
   overflow: hidden;
 }
+/* display:flex 的特异性会盖过 UA 对 [hidden] 的 display:none，
+   不加这条登录态 hero 仍然渲染 */
+.hero[hidden] { display: none; }
 
 /* The reference hero is a full-viewport stage: a faint 90px grid, a big
  * brand glow spot, and a two-layer canvas network, all fading out toward
@@ -393,22 +396,23 @@ body::before {
   -webkit-mask-image: linear-gradient(#000000fc 0%, #000000e8 8.98%, transparent 100%);
 }
 
-/* Random picture behind the grid/particles: faded well down so hero text
-   stays readable in both themes. The .hero-bg mask already fades the whole
-   layer out toward the bottom. */
-.hero-bg-img {
-  position: absolute;
+/* Random picture as the page-wide backdrop: fixed behind everything
+   (body::before glow sits on top at z-index -1), faded well down so text
+   and cards stay readable in both themes. */
+.page-bg-img {
+  position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center;
-  opacity: 0.3;
+  pointer-events: none;
+  z-index: -2;
+  opacity: 0.22;
   filter: saturate(0.85);
-  background: var(--ds-color-bg-surface-1);
 }
-[data-theme="dark"] .hero-bg-img {
-  opacity: 0.25;
+[data-theme="dark"] .page-bg-img {
+  opacity: 0.18;
 }
 
 .hero-bg-grid {
