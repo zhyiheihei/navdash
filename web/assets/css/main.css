@@ -632,12 +632,16 @@ body::before {
   padding: var(--ds-space-4) var(--ds-space-5);
   min-height: 92px;
   border-radius: var(--ds-radius-media);
-  border: 1px solid var(--ds-color-border-default);
-  /* 整页随机图背景之下，卡片用半透明面 + 毛玻璃“浮现”在其上 */
-  background: rgba(255, 255, 255, 0.74);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  box-shadow: 0 6px 22px rgba(15, 18, 34, 0.1);
+  /* 玻璃拟态：透光面 + 大模糊 + 饱和度提亮，背景色透进玻璃；
+     1px 亮边与内侧顶部高光模拟玻璃边缘折射，双层投影做悬浮 */
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 8px rgba(15, 18, 34, 0.06),
+    0 10px 30px rgba(15, 18, 34, 0.12);
   text-decoration: none;
   color: inherit;
   overflow: hidden;
@@ -645,18 +649,34 @@ body::before {
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 [data-theme="dark"] .card {
-  background: rgba(23, 25, 31, 0.62);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.32);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(18, 21, 28, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 10px 30px rgba(0, 0, 0, 0.38);
+}
+/* 无 backdrop-filter 的老浏览器退回近实心底，保证可读性 */
+@supports not (backdrop-filter: blur(1px)) {
+  .card { background: rgba(255, 255, 255, 0.92); }
+  [data-theme="dark"] .card { background: rgba(20, 22, 28, 0.94); }
 }
 .card:hover {
   transform: translateY(-4px);
-  border-color: var(--ds-color-border-strong);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 14px 34px rgba(15, 18, 34, 0.16);
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 4px 12px rgba(15, 18, 34, 0.08),
+    0 16px 40px rgba(15, 18, 34, 0.18);
 }
 [data-theme="dark"] .card:hover {
-  background: rgba(30, 33, 41, 0.78);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(24, 27, 35, 0.56);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.24),
+    0 16px 40px rgba(0, 0, 0, 0.48);
 }
 .card:hover::after {
   /* DS-style animated conic border sweep */
@@ -823,18 +843,20 @@ body::before {
   .card-btn { opacity: 1; }
 }
 
-/* group-move popover */
+/* group-move popover：与卡片同配方的玻璃面板 */
 .move-menu {
   position: fixed;
   z-index: 60;
   width: 220px;
   padding: 10px;
   border-radius: var(--ds-radius-panel);
-  border: 1px solid var(--ds-color-border-default);
-  background: var(--ds-color-bg-surface-raised, var(--ds-color-bg-surface-1));
-  backdrop-filter: blur(var(--ds-blur-glass));
-  -webkit-backdrop-filter: blur(var(--ds-blur-glass));
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 12px 32px rgba(15, 18, 34, 0.16);
 }
 .move-menu-head {
   font-size: 12px;
@@ -861,15 +883,27 @@ body::before {
   color: var(--ds-color-text-description);
 }
 
-/* browser-home dialog */
+/* browser-home dialog：同配方玻璃面板 */
 .home-dialog {
   width: min(560px, calc(100% - 48px));
-  border: 1px solid var(--ds-color-border-default);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: var(--ds-radius-panel);
-  background: var(--ds-color-bg-page);
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 24px 64px rgba(15, 18, 34, 0.22);
   color: var(--ds-color-text-primary);
   padding: var(--ds-space-5);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+}
+[data-theme="dark"] .home-dialog,
+[data-theme="dark"] .move-menu {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(18, 21, 28, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 24px 64px rgba(0, 0, 0, 0.5);
 }
 .home-dialog::backdrop { background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); }
 .home-dialog-head {
