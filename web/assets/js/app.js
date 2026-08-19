@@ -150,11 +150,24 @@
     var groups = {};
     var order = [];
     kept.forEach(function (e) {
-      var k = state.groups[e.url] || e.host || "other";
+      // Semantic bucket (公开/私有/快捷) assigned at Nix eval time; fall
+      // back to the physical host for entries without one.
+      var k = state.groups[e.url] || e.group || e.host || "other";
       if (!groups[k]) { groups[k] = []; order.push(k); }
       groups[k].push(e);
     });
-    order.sort();
+    // Semantic groups keep a fixed order (公开 → 私有 → 快捷); any other
+    // group (custom user groups, host fallbacks) sorts alphabetically after.
+    var SEMANTIC = ["公开", "私有", "快捷"];
+    order.sort(function (a, b) {
+      var ia = SEMANTIC.indexOf(a), ib = SEMANTIC.indexOf(b);
+      if (ia !== -1 || ib !== -1) {
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      }
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
     order.forEach(function (k) { list.push({ key: k, entries: groups[k] }); });
 
     list.forEach(function (g) {

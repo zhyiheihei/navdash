@@ -243,6 +243,12 @@ type entry struct {
 	URL       string `json:"url"`
 	Host      string `json:"host"`
 	Access    string `json:"access"`
+	// Group is the semantic bucket the card belongs to (公开/私有/快捷),
+	// assigned at Nix evaluation time. The frontend groups cards by this
+	// value instead of the physical host, so public zhyi.xin services,
+	// private zhyi.cc/localhost services and external providers each get
+	// their own section. Empty falls back to the host name.
+	Group string `json:"group"`
 	// Icon names the card icon at the FlatNas icon site (nasicon.top);
 	// empty means the frontend falls back to the highlight label.
 	Icon string `json:"icon"`
