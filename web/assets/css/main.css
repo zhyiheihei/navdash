@@ -873,6 +873,17 @@ body::before {
   gap: 6px;
 }
 
+/* metric source error / no-data line: shown instead of 0% bars or an empty
+   row when the backend reports a failed PromQL query or service API call. */
+.metric-error {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ds-color-text-description);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* card meta row: health dot + latency on the left, host on the right */
 .card-meta {
   display: flex;

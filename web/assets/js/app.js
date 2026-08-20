@@ -338,6 +338,12 @@
   //   - immich/jellyfin/gitea cards render their service-internal widget items
   //     (photos, library counts, repos...) from state.metrics.services[url].
   // Anonymous or not-yet-loaded state leaves the row empty (hidden).
+  //
+  // Error / no-data state: the backend sets hostMetric.error (PromQL query
+  // failed or returned no sample) and widgetData.error (service API call
+  // failed). When present we render a single error line instead of silently
+  // showing 0% bars or an empty row, so a broken source is visible rather than
+  // mistaken for a real zero.
   function renderMetrics(card, e) {
     var row = card.querySelector(".card-metrics");
     row.textContent = "";
@@ -348,6 +354,10 @@
       var m = state.metrics.hosts && state.metrics.hosts[hostKey];
       if (!m) return;
       row.hidden = false;
+      if (m.error) {
+        row.appendChild(errorMetric(m.error));
+        return;
+      }
       var bars = [
         { k: "cpu", label: "CPU", v: m.cpu },
         { k: "memory", label: "内存", v: m.memory },
@@ -369,7 +379,13 @@
     // Service widget data (immich / jellyfin / gitea ...)
     if (!e.widget) return;
     var svc = state.metrics.services && state.metrics.services[e.url];
-    if (!svc || !svc.items || !svc.items.length) return;
+    if (!svc) return;
+    if (svc.error) {
+      row.hidden = false;
+      row.appendChild(errorMetric(svc.error));
+      return;
+    }
+    if (!svc.items || !svc.items.length) return;
     row.hidden = false;
     svc.items.forEach(function (it) {
       var span = document.createElement("span");
@@ -379,6 +395,19 @@
       span.querySelector(".svc-metric-label").textContent = it.label;
       row.appendChild(span);
     });
+  }
+
+  // Build a compact error line for a failed / no-data metric source. The
+  // backend error string is truncated to keep the card tidy; the full message
+  // rides along as a title tooltip.
+  function errorMetric(msg) {
+    var span = document.createElement("span");
+    span.className = "metric-error";
+    var text = (msg || "数据不可用").trim();
+    if (text.length > 48) text = text.slice(0, 48) + "…";
+    span.textContent = text;
+    span.title = msg || "";
+    return span;
   }
 
   function wireCard(card) {
