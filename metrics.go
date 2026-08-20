@@ -260,33 +260,52 @@ func (w *widgetCollector) fetchServiceData(cards []entry) map[string]*widgetData
 	return out
 }
 
+// httpGet issues one GET request with the given headers and returns the body
+// on a 200 response.
+func (w *widgetCollector) httpGet(endpoint string, hdr map[string]string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
+	resp, err := w.a.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+// fetchServiceEndpoint fetches path from baseURL, retrying on :8443 when the
+// default port fails. On-premise zhyi services (immich/jellyfin) are only
+// reachable from the cloud host via :8443 — the home WAN 443 is blocked by the
+// ISP — so a failed fetch on 443 is retried on 8443, mirroring the health
+// prober's alt8443URL fallback. Cloud-hosted services (gitea) answer on 443
+// and never trigger the retry.
+func (w *widgetCollector) fetchServiceEndpoint(baseURL, path string, hdr map[string]string) ([]byte, error) {
+	raw, err := w.httpGet(baseURL+path, hdr)
+	if err != nil {
+		if alt := alt8443URL(baseURL); alt != "" {
+			raw, err = w.httpGet(alt+path, hdr)
+		}
+	}
+	return raw, err
+}
+
 func (w *widgetCollector) queryService(e entry) ([]widgetItem, error) {
 	key := w.a.cfg.widgetKeys[e.Widget]
-	httpGet := func(endpoint string, hdr map[string]string) ([]byte, error) {
-		req, err := http.NewRequest(http.MethodGet, endpoint, nil)
-		if err != nil {
-			return nil, err
-		}
-		for k, v := range hdr {
-			req.Header.Set(k, v)
-		}
-		resp, err := w.a.client.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("status %d", resp.StatusCode)
-		}
-		return io.ReadAll(resp.Body)
-	}
 
 	switch e.Widget {
 	case "immich":
 		if key == "" {
 			return nil, fmt.Errorf("immich api key not configured")
 		}
-		raw, err := httpGet(e.URL+"/api/server/statistics", map[string]string{"x-api-key": key})
+		raw, err := w.fetchServiceEndpoint(e.URL, "/api/server/statistics", map[string]string{"x-api-key": key})
 		if err != nil {
 			return nil, err
 		}
@@ -311,7 +330,7 @@ func (w *widgetCollector) queryService(e entry) ([]widgetItem, error) {
 		if key == "" {
 			return nil, fmt.Errorf("jellyfin api_key not configured")
 		}
-		raw, err := httpGet(e.URL+"/Items/Counts", map[string]string{"X-Emby-Token": key})
+		raw, err := w.fetchServiceEndpoint(e.URL, "/Items/Counts", map[string]string{"X-Emby-Token": key})
 		if err != nil {
 			return nil, err
 		}
